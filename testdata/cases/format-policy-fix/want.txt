@@ -1,0 +1,13 @@
+
+code.py
+  1:8  replaced  U+2014 Em Dash -> "-" (typographic)
+  2:4  replaced  U+00A0 Non-Breaking Space -> " " (hidden)
+  3:5  removed  U+200B Zero Width Space (hidden)
+
+notes.md
+  1:15  replaced  U+2014 Em Dash -> "-" (typographic)
+
+page.html
+  1:5  replaced  U+00A0 Non-Breaking Space -> " " (hidden)
+
+found: 5 marker(s) in 3 of 3 file(s), 5 fixed

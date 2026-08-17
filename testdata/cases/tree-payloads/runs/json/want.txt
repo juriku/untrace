@@ -1,0 +1,558 @@
+{
+  "version": "dev",
+  "files": [
+    {
+      "path": "homoglyph.txt",
+      "format": "prose",
+      "encoding": "utf-8",
+      "findings": [
+        {
+          "line": 1,
+          "column": 11,
+          "codepoint": "U+0430",
+          "name": "Cyrillic Small Letter A",
+          "kind": "typographic",
+          "action": "detected",
+          "applied": false,
+          "actionable": false
+        }
+      ],
+      "mixed_script": [
+        {
+          "line": 1,
+          "column": 10,
+          "word": "pаypal",
+          "scripts": [
+            "Cyrillic",
+            "Latin"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "legitimate.txt",
+      "format": "prose",
+      "encoding": "utf-8",
+      "findings": null
+    },
+    {
+      "path": "tag.txt",
+      "format": "prose",
+      "encoding": "utf-8",
+      "findings": [
+        {
+          "line": 1,
+          "column": 26,
+          "codepoint": "U+E0074",
+          "name": "Tag \"t\"",
+          "kind": "tag",
+          "action": "detected",
+          "applied": false,
+          "in_payload": true,
+          "actionable": true
+        },
+        {
+          "line": 1,
+          "column": 27,
+          "codepoint": "U+E0072",
+          "name": "Tag \"r\"",
+          "kind": "tag",
+          "action": "detected",
+          "applied": false,
+          "in_payload": true,
+          "actionable": true
+        },
+        {
+          "line": 1,
+          "column": 28,
+          "codepoint": "U+E0061",
+          "name": "Tag \"a\"",
+          "kind": "tag",
+          "action": "detected",
+          "applied": false,
+          "in_payload": true,
+          "actionable": true
+        },
+        {
+          "line": 1,
+          "column": 29,
+          "codepoint": "U+E0063",
+          "name": "Tag \"c\"",
+          "kind": "tag",
+          "action": "detected",
+          "applied": false,
+          "in_payload": true,
+          "actionable": true
+        },
+        {
+          "line": 1,
+          "column": 30,
+          "codepoint": "U+E006B",
+          "name": "Tag \"k\"",
+          "kind": "tag",
+          "action": "detected",
+          "applied": false,
+          "in_payload": true,
+          "actionable": true
+        },
+        {
+          "line": 1,
+          "column": 31,
+          "codepoint": "U+E0065",
+          "name": "Tag \"e\"",
+          "kind": "tag",
+          "action": "detected",
+          "applied": false,
+          "in_payload": true,
+          "actionable": true
+        },
+        {
+          "line": 1,
+          "column": 32,
+          "codepoint": "U+E0064",
+          "name": "Tag \"d\"",
+          "kind": "tag",
+          "action": "detected",
+          "applied": false,
+          "in_payload": true,
+          "actionable": true
+        },
+        {
+          "line": 1,
+          "column": 33,
+          "codepoint": "U+E002D",
+          "name": "Tag \"-\"",
+          "kind": "tag",
+          "action": "detected",
+          "applied": false,
+          "in_payload": true,
+          "actionable": true
+        },
+        {
+          "line": 1,
+          "column": 34,
+          "codepoint": "U+E0062",
+          "name": "Tag \"b\"",
+          "kind": "tag",
+          "action": "detected",
+          "applied": false,
+          "in_payload": true,
+          "actionable": true
+        },
+        {
+          "line": 1,
+          "column": 35,
+          "codepoint": "U+E0079",
+          "name": "Tag \"y\"",
+          "kind": "tag",
+          "action": "detected",
+          "applied": false,
+          "in_payload": true,
+          "actionable": true
+        },
+        {
+          "line": 1,
+          "column": 36,
+          "codepoint": "U+E003A",
+          "name": "Tag \":\"",
+          "kind": "tag",
+          "action": "detected",
+          "applied": false,
+          "in_payload": true,
+          "actionable": true
+        },
+        {
+          "line": 1,
+          "column": 37,
+          "codepoint": "U+E0061",
+          "name": "Tag \"a\"",
+          "kind": "tag",
+          "action": "detected",
+          "applied": false,
+          "in_payload": true,
+          "actionable": true
+        },
+        {
+          "line": 1,
+          "column": 38,
+          "codepoint": "U+E0063",
+          "name": "Tag \"c\"",
+          "kind": "tag",
+          "action": "detected",
+          "applied": false,
+          "in_payload": true,
+          "actionable": true
+        },
+        {
+          "line": 1,
+          "column": 39,
+          "codepoint": "U+E0063",
+          "name": "Tag \"c\"",
+          "kind": "tag",
+          "action": "detected",
+          "applied": false,
+          "in_payload": true,
+          "actionable": true
+        },
+        {
+          "line": 1,
+          "column": 40,
+          "codepoint": "U+E0074",
+          "name": "Tag \"t\"",
+          "kind": "tag",
+          "action": "detected",
+          "applied": false,
+          "in_payload": true,
+          "actionable": true
+        },
+        {
+          "line": 1,
+          "column": 41,
+          "codepoint": "U+E002D",
+          "name": "Tag \"-\"",
+          "kind": "tag",
+          "action": "detected",
+          "applied": false,
+          "in_payload": true,
+          "actionable": true
+        },
+        {
+          "line": 1,
+          "column": 42,
+          "codepoint": "U+E0039",
+          "name": "Tag \"9\"",
+          "kind": "tag",
+          "action": "detected",
+          "applied": false,
+          "in_payload": true,
+          "actionable": true
+        },
+        {
+          "line": 1,
+          "column": 43,
+          "codepoint": "U+E0039",
+          "name": "Tag \"9\"",
+          "kind": "tag",
+          "action": "detected",
+          "applied": false,
+          "in_payload": true,
+          "actionable": true
+        },
+        {
+          "line": 1,
+          "column": 44,
+          "codepoint": "U+E0032",
+          "name": "Tag \"2\"",
+          "kind": "tag",
+          "action": "detected",
+          "applied": false,
+          "in_payload": true,
+          "actionable": true
+        },
+        {
+          "line": 1,
+          "column": 45,
+          "codepoint": "U+E0031",
+          "name": "Tag \"1\"",
+          "kind": "tag",
+          "action": "detected",
+          "applied": false,
+          "in_payload": true,
+          "actionable": true
+        },
+        {
+          "line": 1,
+          "column": 46,
+          "codepoint": "U+E0033",
+          "name": "Tag \"3\"",
+          "kind": "tag",
+          "action": "detected",
+          "applied": false,
+          "in_payload": true,
+          "actionable": true
+        }
+      ],
+      "payloads": [
+        {
+          "scheme": "tag-ascii",
+          "start": 25,
+          "end": 46,
+          "runes": 21,
+          "text": "tracked-by:acct-99213",
+          "printable": true,
+          "line": 1,
+          "column": 26
+        }
+      ]
+    },
+    {
+      "path": "variation.txt",
+      "format": "prose",
+      "encoding": "utf-8",
+      "findings": [
+        {
+          "line": 1,
+          "column": 12,
+          "codepoint": "U+E015C",
+          "name": "Ideographic Variation Selector-109",
+          "kind": "ideographic-vs",
+          "action": "detected",
+          "applied": false,
+          "in_payload": true,
+          "actionable": true
+        },
+        {
+          "line": 1,
+          "column": 13,
+          "codepoint": "U+E0155",
+          "name": "Ideographic Variation Selector-102",
+          "kind": "ideographic-vs",
+          "action": "detected",
+          "applied": false,
+          "in_payload": true,
+          "actionable": true
+        },
+        {
+          "line": 1,
+          "column": 14,
+          "codepoint": "U+E0151",
+          "name": "Ideographic Variation Selector-98",
+          "kind": "ideographic-vs",
+          "action": "detected",
+          "applied": false,
+          "in_payload": true,
+          "actionable": true
+        },
+        {
+          "line": 1,
+          "column": 15,
+          "codepoint": "U+E015B",
+          "name": "Ideographic Variation Selector-108",
+          "kind": "ideographic-vs",
+          "action": "detected",
+          "applied": false,
+          "in_payload": true,
+          "actionable": true
+        }
+      ],
+      "payloads": [
+        {
+          "scheme": "variation-selector",
+          "start": 11,
+          "end": 15,
+          "runes": 4,
+          "text": "leak",
+          "printable": true,
+          "line": 1,
+          "column": 12
+        }
+      ]
+    },
+    {
+      "path": "zerowidth.txt",
+      "format": "prose",
+      "encoding": "utf-8",
+      "findings": [
+        {
+          "line": 1,
+          "column": 25,
+          "codepoint": "U+200B",
+          "name": "Zero Width Space",
+          "kind": "hidden",
+          "action": "detected",
+          "applied": false,
+          "in_payload": true,
+          "actionable": true
+        },
+        {
+          "line": 1,
+          "column": 26,
+          "codepoint": "U+200C",
+          "name": "Zero Width Non-Joiner",
+          "kind": "hidden",
+          "action": "detected",
+          "applied": false,
+          "in_payload": true,
+          "actionable": true
+        },
+        {
+          "line": 1,
+          "column": 27,
+          "codepoint": "U+200B",
+          "name": "Zero Width Space",
+          "kind": "hidden",
+          "action": "detected",
+          "applied": false,
+          "in_payload": true,
+          "actionable": true
+        },
+        {
+          "line": 1,
+          "column": 28,
+          "codepoint": "U+200B",
+          "name": "Zero Width Space",
+          "kind": "hidden",
+          "action": "detected",
+          "applied": false,
+          "in_payload": true,
+          "actionable": true
+        },
+        {
+          "line": 1,
+          "column": 29,
+          "codepoint": "U+200C",
+          "name": "Zero Width Non-Joiner",
+          "kind": "hidden",
+          "action": "detected",
+          "applied": false,
+          "in_payload": true,
+          "actionable": true
+        },
+        {
+          "line": 1,
+          "column": 30,
+          "codepoint": "U+200B",
+          "name": "Zero Width Space",
+          "kind": "hidden",
+          "action": "detected",
+          "applied": false,
+          "in_payload": true,
+          "actionable": true
+        },
+        {
+          "line": 1,
+          "column": 31,
+          "codepoint": "U+200B",
+          "name": "Zero Width Space",
+          "kind": "hidden",
+          "action": "detected",
+          "applied": false,
+          "in_payload": true,
+          "actionable": true
+        },
+        {
+          "line": 1,
+          "column": 32,
+          "codepoint": "U+200B",
+          "name": "Zero Width Space",
+          "kind": "hidden",
+          "action": "detected",
+          "applied": false,
+          "in_payload": true,
+          "actionable": true
+        },
+        {
+          "line": 1,
+          "column": 33,
+          "codepoint": "U+200B",
+          "name": "Zero Width Space",
+          "kind": "hidden",
+          "action": "detected",
+          "applied": false,
+          "in_payload": true,
+          "actionable": true
+        },
+        {
+          "line": 1,
+          "column": 34,
+          "codepoint": "U+200C",
+          "name": "Zero Width Non-Joiner",
+          "kind": "hidden",
+          "action": "detected",
+          "applied": false,
+          "in_payload": true,
+          "actionable": true
+        },
+        {
+          "line": 1,
+          "column": 35,
+          "codepoint": "U+200B",
+          "name": "Zero Width Space",
+          "kind": "hidden",
+          "action": "detected",
+          "applied": false,
+          "in_payload": true,
+          "actionable": true
+        },
+        {
+          "line": 1,
+          "column": 36,
+          "codepoint": "U+200B",
+          "name": "Zero Width Space",
+          "kind": "hidden",
+          "action": "detected",
+          "applied": false,
+          "in_payload": true,
+          "actionable": true
+        },
+        {
+          "line": 1,
+          "column": 37,
+          "codepoint": "U+200C",
+          "name": "Zero Width Non-Joiner",
+          "kind": "hidden",
+          "action": "detected",
+          "applied": false,
+          "in_payload": true,
+          "actionable": true
+        },
+        {
+          "line": 1,
+          "column": 38,
+          "codepoint": "U+200B",
+          "name": "Zero Width Space",
+          "kind": "hidden",
+          "action": "detected",
+          "applied": false,
+          "in_payload": true,
+          "actionable": true
+        },
+        {
+          "line": 1,
+          "column": 39,
+          "codepoint": "U+200B",
+          "name": "Zero Width Space",
+          "kind": "hidden",
+          "action": "detected",
+          "applied": false,
+          "in_payload": true,
+          "actionable": true
+        },
+        {
+          "line": 1,
+          "column": 40,
+          "codepoint": "U+200C",
+          "name": "Zero Width Non-Joiner",
+          "kind": "hidden",
+          "action": "detected",
+          "applied": false,
+          "in_payload": true,
+          "actionable": true
+        }
+      ],
+      "payloads": [
+        {
+          "scheme": "zero-width-binary",
+          "start": 24,
+          "end": 40,
+          "runes": 16,
+          "text": "HI",
+          "printable": true,
+          "line": 1,
+          "column": 25
+        }
+      ]
+    }
+  ],
+  "summary": {
+    "files_scanned": 5,
+    "files_with_markers": 4,
+    "markers_detected": 42,
+    "markers_actionable": 41,
+    "markers_applied": 0,
+    "payloads_decoded": 3,
+    "metadata_records": 0,
+    "suppressed": 0,
+    "mixed_script_words": 1
+  }
+}

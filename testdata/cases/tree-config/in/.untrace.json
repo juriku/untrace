@@ -1,0 +1,11 @@
+{
+  "formats": {
+    "prose": { "typographic": "ignore" }
+  },
+  "overrides": [
+    {
+      "files": ["docs/**"],
+      "mixedScript": "ignore"
+    }
+  ]
+}

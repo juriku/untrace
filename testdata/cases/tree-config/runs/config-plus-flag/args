@@ -1,0 +1,1 @@
+--config alternate.json --exclude-char U+2014 .

@@ -1,0 +1,6 @@
+{
+  "formats": {
+    "prose": { "typographic": "clean" }
+  },
+  "exclude": ["U+200B"]
+}

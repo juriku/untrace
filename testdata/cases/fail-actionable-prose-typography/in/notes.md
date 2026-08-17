@@ -1,0 +1,1 @@
+Deliberate — typography in prose.

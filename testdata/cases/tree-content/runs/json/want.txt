@@ -1,0 +1,235 @@
+{
+  "version": "dev",
+  "files": [
+    {
+      "path": "app.log",
+      "format": "log",
+      "encoding": "utf-8",
+      "findings": null
+    },
+    {
+      "path": "camera.png",
+      "format": "png",
+      "encoding": "binary",
+      "findings": null,
+      "metadata": [
+        {
+          "kind": "c2pa",
+          "bytes": 37
+        },
+        {
+          "kind": "png-text",
+          "label": "Software",
+          "value": "Leica M11 Firmware 2.1",
+          "bytes": 31
+        }
+      ],
+      "provenance": [
+        {
+          "source": "c2pa",
+          "detail": "signed credential present",
+          "ai": false
+        }
+      ],
+      "confidence": "possible"
+    },
+    {
+      "path": "data.json",
+      "format": "data",
+      "encoding": "utf-8",
+      "findings": [
+        {
+          "line": 1,
+          "column": 11,
+          "codepoint": "U+2014",
+          "name": "Em Dash",
+          "kind": "typographic",
+          "action": "detected",
+          "applied": false,
+          "actionable": true
+        }
+      ]
+    },
+    {
+      "path": "generated.png",
+      "format": "png",
+      "encoding": "binary",
+      "findings": null,
+      "metadata": [
+        {
+          "kind": "c2pa",
+          "bytes": 17
+        },
+        {
+          "kind": "png-text",
+          "label": "Software",
+          "value": "Adobe Firefly 3",
+          "bytes": 24
+        }
+      ],
+      "provenance": [
+        {
+          "source": "c2pa",
+          "detail": "signed credential present",
+          "ai": false
+        },
+        {
+          "source": "png-text Software",
+          "detail": "firefly",
+          "ai": true
+        }
+      ],
+      "confidence": "likely"
+    },
+    {
+      "path": "notes.md",
+      "format": "prose",
+      "encoding": "utf-8",
+      "findings": [
+        {
+          "line": 3,
+          "column": 15,
+          "codepoint": "U+2014",
+          "name": "Em Dash",
+          "kind": "typographic",
+          "action": "detected",
+          "applied": false,
+          "actionable": true
+        },
+        {
+          "line": 6,
+          "column": 6,
+          "codepoint": "U+2014",
+          "name": "Em Dash",
+          "kind": "typographic",
+          "action": "detected",
+          "applied": false,
+          "actionable": true
+        }
+      ]
+    },
+    {
+      "path": "page.html",
+      "format": "markup",
+      "encoding": "utf-8",
+      "findings": [
+        {
+          "line": 1,
+          "column": 5,
+          "codepoint": "U+00A0",
+          "name": "Non-Breaking Space",
+          "kind": "hidden",
+          "action": "detected",
+          "applied": false,
+          "actionable": true
+        },
+        {
+          "line": 1,
+          "column": 8,
+          "codepoint": "U+2014",
+          "name": "Em Dash",
+          "kind": "typographic",
+          "action": "detected",
+          "applied": false,
+          "actionable": true
+        }
+      ]
+    },
+    {
+      "path": "paper.pdf",
+      "format": "pdf",
+      "encoding": "container",
+      "findings": null,
+      "metadata": [
+        {
+          "kind": "pdf-property",
+          "label": "Producer",
+          "value": "Claude"
+        },
+        {
+          "kind": "pdf-property",
+          "label": "Creator",
+          "value": "Some AI Tool"
+        }
+      ],
+      "provenance": [
+        {
+          "source": "pdf-property Producer",
+          "detail": "claude",
+          "ai": true
+        }
+      ],
+      "confidence": "likely"
+    },
+    {
+      "path": "report.docx",
+      "format": "ooxml",
+      "encoding": "container",
+      "findings": [
+        {
+          "line": 1,
+          "column": 57,
+          "codepoint": "U+200B",
+          "name": "Zero Width Space",
+          "kind": "hidden",
+          "action": "detected",
+          "applied": false,
+          "actionable": true
+        }
+      ],
+      "metadata": [
+        {
+          "kind": "ooxml-property",
+          "label": "creator",
+          "value": "Jane Doe"
+        },
+        {
+          "kind": "ooxml-property",
+          "label": "lastModifiedBy",
+          "value": "Claude"
+        },
+        {
+          "kind": "ooxml-property",
+          "label": "Application",
+          "value": "Microsoft Word"
+        }
+      ],
+      "provenance": [
+        {
+          "source": "ooxml-property lastModifiedBy",
+          "detail": "claude",
+          "ai": true
+        }
+      ],
+      "confidence": "likely"
+    },
+    {
+      "path": "script.py",
+      "format": "source",
+      "encoding": "utf-8",
+      "findings": [
+        {
+          "line": 1,
+          "column": 7,
+          "codepoint": "U+200B",
+          "name": "Zero Width Space",
+          "kind": "hidden",
+          "action": "detected",
+          "applied": false,
+          "actionable": true
+        }
+      ]
+    }
+  ],
+  "summary": {
+    "files_scanned": 9,
+    "files_with_markers": 8,
+    "markers_detected": 7,
+    "markers_actionable": 7,
+    "markers_applied": 0,
+    "payloads_decoded": 0,
+    "metadata_records": 9,
+    "suppressed": 0,
+    "mixed_script_words": 0
+  }
+}

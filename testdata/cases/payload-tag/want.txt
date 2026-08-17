@@ -1,0 +1,6 @@
+
+invoice.txt
+  !! hidden payload (tag-ascii) decodes to "tracked-by:acct-99213" across 21 characters
+  (21 character(s) in the payload above; --json to list them)
+
+found: 21 marker(s) in 1 of 1 file(s), 1 decoded payload(s)

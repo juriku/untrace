@@ -1,0 +1,13 @@
+
+docs/attack.md
+  1:22  mixed-script  "pаypal" mixes Cyrillic and Latin
+  1:23  detected  U+0430 Cyrillic Small Letter A (typographic)
+
+notes.md
+  1:15  detected  U+2014 Em Dash (typographic)
+
+src/report.md
+  1:15  mixed-script  "pаypal" mixes Cyrillic and Latin
+  1:16  detected  U+0430 Cyrillic Small Letter A (typographic)
+
+found: 3 marker(s) in 3 of 6 file(s), 2 mixed-script word(s)

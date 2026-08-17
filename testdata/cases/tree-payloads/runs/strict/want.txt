@@ -1,0 +1,34 @@
+
+homoglyph.txt
+  1:10  mixed-script  "pаypal" mixes Cyrillic and Latin
+  1:11  detected  U+0430 Cyrillic Small Letter A (typographic)
+  2:2  detected  U+0440 Cyrillic Small Letter Er (typographic)
+  2:5  detected  U+0435 Cyrillic Small Letter Ie (typographic)
+  2:10  detected  U+0440 Cyrillic Small Letter Er (typographic)
+
+legitimate.txt
+  1:8  detected  U+FE0F Variation Selector-16 (hidden)
+  2:9  detected  U+200D Zero Width Joiner (hidden)
+  2:11  detected  U+200D Zero Width Joiner (hidden)
+  3:7  detected  U+E0067 Tag "g" (tag)
+  3:8  detected  U+E0062 Tag "b" (tag)
+  3:9  detected  U+E0073 Tag "s" (tag)
+  3:10  detected  U+E0063 Tag "c" (tag)
+  3:11  detected  U+E0074 Tag "t" (tag)
+  3:12  detected  U+E007F Cancel Tag (tag)
+  4:10  detected  U+200C Zero Width Non-Joiner (hidden)
+  5:9  detected  U+FE0F Variation Selector-16 (hidden)
+
+tag.txt
+  !! hidden payload (tag-ascii) decodes to "tracked-by:acct-99213" across 21 characters
+  (21 character(s) in the payload above; --json to list them)
+
+variation.txt
+  !! hidden payload (variation-selector) decodes to "leak" across 4 characters
+  (4 character(s) in the payload above; --json to list them)
+
+zerowidth.txt
+  !! hidden payload (zero-width-binary) decodes to "HI" across 16 characters
+  (16 character(s) in the payload above; --json to list them)
+
+found: 56 marker(s) in 5 of 5 file(s), 1 mixed-script word(s), 3 decoded payload(s)

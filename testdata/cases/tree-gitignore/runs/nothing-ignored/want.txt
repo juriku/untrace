@@ -1,0 +1,35 @@
+
+build/out.txt
+  1:7  detected  U+200B Zero Width Space (hidden)
+
+dist/bundle.txt
+  1:7  detected  U+200B Zero Width Space (hidden)
+
+local-notes.md
+  1:7  detected  U+200B Zero Width Space (hidden)
+
+logs/debug.tmp
+  1:7  detected  U+200B Zero Width Space (hidden)
+
+node_modules/pkg/dep.txt
+  1:7  detected  U+200B Zero Width Space (hidden)
+
+src/deep/allowed.tmp
+  1:7  detected  U+200B Zero Width Space (hidden)
+
+src/deep/nested.txt
+  1:7  detected  U+200B Zero Width Space (hidden)
+
+src/keep.txt
+  1:7  detected  U+200B Zero Width Space (hidden)
+
+src/scratch.tmp
+  1:7  detected  U+200B Zero Width Space (hidden)
+
+src/secret.txt
+  1:7  detected  U+200B Zero Width Space (hidden)
+
+top.txt
+  1:7  detected  U+200B Zero Width Space (hidden)
+
+found: 11 marker(s) in 11 of 13 file(s)

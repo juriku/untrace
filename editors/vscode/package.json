@@ -1,0 +1,70 @@
+{
+  "name": "untrace",
+  "displayName": "untrace",
+  "description": "Find invisible characters, homoglyphs and hidden payloads as you edit.",
+  "version": "0.1.0",
+  "publisher": "juriku",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/juriku/untrace.git",
+    "directory": "editors/vscode"
+  },
+  "engines": {
+    "vscode": "^1.104.0"
+  },
+  "categories": ["Linters"],
+  "main": "./out/extension.js",
+  "activationEvents": ["onStartupFinished"],
+  "contributes": {
+    "configuration": {
+      "title": "untrace",
+      "properties": {
+        "untrace.enable": {
+          "type": "boolean",
+          "default": true,
+          "description": "Report untrace findings as diagnostics."
+        },
+        "untrace.path": {
+          "type": "string",
+          "default": "untrace",
+          "description": "Path to the untrace binary. Resolved from PATH when not absolute."
+        },
+        "untrace.run": {
+          "type": "string",
+          "enum": ["onSave", "onType", "off"],
+          "default": "onSave",
+          "enumDescriptions": [
+            "Check when a file is opened and saved.",
+            "Also check while typing, debounced.",
+            "Only check when the Check File command is run."
+          ],
+          "description": "When to check a document."
+        },
+        "untrace.strict": {
+          "type": "boolean",
+          "default": false,
+          "description": "Report every marker, including ones doing a legitimate job such as emoji joiners."
+        }
+      }
+    },
+    "commands": [
+      {
+        "command": "untrace.checkFile",
+        "title": "untrace: Check File"
+      }
+    ]
+  },
+  "scripts": {
+    "compile": "tsc -p .",
+    "watch": "tsc -p . -w",
+    "typecheck": "tsc -p tsconfig.test.json",
+    "test": "node --test src/*.test.ts",
+    "vscode:prepublish": "npm run compile"
+  },
+  "devDependencies": {
+    "@types/node": "^26.2.0",
+    "@types/vscode": "^1.104.0",
+    "typescript": "^7.0.2"
+  }
+}

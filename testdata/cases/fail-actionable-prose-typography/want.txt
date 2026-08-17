@@ -1,0 +1,5 @@
+
+notes.md
+  1:12  detected  U+2014 Em Dash (typographic)
+
+found: 1 marker(s) in 1 of 1 file(s)

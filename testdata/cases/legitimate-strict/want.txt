@@ -1,0 +1,5 @@
+
+emoji.txt
+  1:7  detected  U+FE0F Variation Selector-16 (hidden)
+
+found: 1 marker(s) in 1 of 1 file(s)

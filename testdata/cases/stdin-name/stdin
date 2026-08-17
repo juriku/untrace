@@ -1,0 +1,5 @@
+Prose with an — em dash.
+
+```bash
+curl —silent https://example.com
+```

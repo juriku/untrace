@@ -1,0 +1,14 @@
+
+paper.pdf [ai-generated: likely]
+  ai-declared  pdf-property Producer names "claude"
+  metadata  pdf-property Producer = "Claude"
+  metadata  pdf-property Creator = "Some AI Tool"
+
+report.docx [ai-generated: likely]
+  ai-declared  ooxml-property lastModifiedBy names "claude"
+  metadata  ooxml-property creator = "Jane Doe"
+  metadata  ooxml-property lastModifiedBy = "Claude"
+  metadata  ooxml-property Application = "Microsoft Word"
+  1:57  detected  U+200B Zero Width Space (hidden)
+
+found: 1 marker(s) in 2 of 2 file(s), 5 metadata record(s)

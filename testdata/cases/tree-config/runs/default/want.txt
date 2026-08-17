@@ -1,0 +1,8 @@
+
+src/code.py
+  2:7  detected  U+200B Zero Width Space (hidden)
+
+src/report.md
+  1:15  mixed-script  "pаypal" mixes Cyrillic and Latin
+
+found: 1 marker(s) in 1 of 6 file(s), 1 mixed-script word(s), 1 suppressed

@@ -1,0 +1,33 @@
+{
+  "version": "dev",
+  "files": [
+    {
+      "path": "a.txt",
+      "format": "prose",
+      "encoding": "utf-8",
+      "findings": [
+        {
+          "line": 1,
+          "column": 4,
+          "codepoint": "U+200B",
+          "name": "Zero Width Space",
+          "kind": "hidden",
+          "action": "detected",
+          "applied": false,
+          "actionable": true
+        }
+      ]
+    }
+  ],
+  "summary": {
+    "files_scanned": 1,
+    "files_with_markers": 1,
+    "markers_detected": 1,
+    "markers_actionable": 1,
+    "markers_applied": 0,
+    "payloads_decoded": 0,
+    "metadata_records": 0,
+    "suppressed": 0,
+    "mixed_script_words": 0
+  }
+}

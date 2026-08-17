@@ -1,0 +1,157 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
+        with:
+          go-version: stable
+
+      - name: Verify formatting
+        if: matrix.os == 'ubuntu-latest'
+        run: test -z "$(gofmt -l .)" || { gofmt -l .; exit 1; }
+
+      - name: Vet
+        run: go vet ./...
+
+      - name: Test
+        run: go test -race ./...
+
+      # Deliberately loose: a floor near the current number rewards padding.
+      # Understates cmd/untrace, whose paths the golden cases exercise through
+      # the built binary as a subprocess, which -coverpkg cannot attribute.
+      - name: Coverage
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          go test ./... -coverpkg=./... -coverprofile=cover.out
+          go tool cover -func=cover.out | tail -1
+          total=$(go tool cover -func=cover.out | tail -1 | grep -Eo '[0-9]+\.[0-9]+')
+          echo "total coverage: ${total}%"
+          awk -v t="$total" 'BEGIN { exit (t >= 70) ? 0 : 1 }' || {
+            echo "coverage ${total}% is below the 70% floor"
+            exit 1
+          }
+
+      # The golden suite drives the built binary as a subprocess, so cmd/untrace
+      # reads as 0% in the profile above. Building with -cover reports it truly.
+      - name: Subprocess coverage
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          mkdir -p covdata
+          GOCOVERDIR="$PWD/covdata" go test .
+          go tool covdata percent -i=covdata
+
+  fuzz:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - package: ./internal/textfile
+            target: FuzzDecodeEncode
+          - package: ./internal/textfile
+            target: FuzzIsBinary
+          - package: ./internal/media
+            target: FuzzStrip
+          - package: ./internal/media
+            target: FuzzInspect
+          - package: ./internal/docmeta
+            target: FuzzRead
+          - package: ./internal/detect
+            target: FuzzDetectOnlyNeverMutates
+          - package: ./internal/detect
+            target: FuzzCleanIsIdempotent
+          - package: ./internal/detect
+            target: FuzzSuppressionOnlyReduces
+
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
+        with:
+          go-version: stable
+
+      # A short run per PR. The committed corpus under testdata/fuzz replays
+      # every crasher found so far as an ordinary test on every build.
+      - name: Fuzz ${{ matrix.target }}
+        run: go test ${{ matrix.package }} -run ${{ matrix.target }} -fuzz ${{ matrix.target }} -fuzztime=60s
+
+      - name: Upload any new crasher
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: crasher-${{ matrix.target }}
+          path: ${{ matrix.package }}/testdata/fuzz/
+
+  # The README recommends the pre-commit hook as the main integration, and its
+  # main package is at ./cmd/untrace rather than the repo root, which is what
+  # pre-commit's Go builder is most likely to trip over.
+  pre-commit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
+        with:
+          go-version: stable
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.x"
+
+      - name: Install pre-commit
+        run: pip install pre-commit
+
+      - name: Both hooks build and run
+        run: |
+          printf 'clean text\n' > sample.txt
+          pre-commit try-repo . untrace --files sample.txt --verbose
+          pre-commit try-repo . untrace-fix --files sample.txt --verbose
+
+  extension:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: editors/vscode
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "24"
+          cache: npm
+          cache-dependency-path: editors/vscode/package-lock.json
+
+      - name: Install
+        run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Test
+        run: npm test
+
+  self-scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
+        with:
+          go-version: stable
+
+      # untrace should be able to police its own source. Its fixture corpus and
+      # the homoglyph examples in its docs are excluded by config.
+      - name: Scan this repository
+        run: go run ./cmd/untrace --fail .

@@ -1,0 +1,14 @@
+
+src/deep/allowed.tmp
+  1:7  detected  U+200B Zero Width Space (hidden)
+
+src/deep/nested.txt
+  1:7  detected  U+200B Zero Width Space (hidden)
+
+src/keep.txt
+  1:7  detected  U+200B Zero Width Space (hidden)
+
+top.txt
+  1:7  detected  U+200B Zero Width Space (hidden)
+
+found: 4 marker(s) in 4 of 6 file(s)

@@ -1,0 +1,11 @@
+
+camera.png
+  provenance  c2pa (37 bytes) [kept: names no generator]
+  metadata  png-text Software = "Leica M11 Firmware 2.1" (31 bytes) [kept: names no generator]
+
+generated.png [ai-generated: likely]
+  ai-declared  png-text Software names "firefly"
+  provenance  c2pa (17 bytes) [kept: names no generator]
+  metadata  png-text Software = "Adobe Firefly 3" (24 bytes)
+
+found: 0 marker(s) in 2 of 2 file(s), 4 metadata record(s)

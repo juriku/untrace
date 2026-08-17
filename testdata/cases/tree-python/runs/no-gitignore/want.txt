@@ -1,0 +1,15 @@
+
+build/lib/core.py
+  1:6  detected  U+200B Zero Width Space (hidden)
+
+src/pkg/__init__.py
+  1:13  detected  U+200B Zero Width Space (hidden)
+
+src/pkg/core.py
+  2:18  detected  U+00A0 Non-Breaking Space (hidden)
+
+tests/test_core.py
+  2:12  mixed-script  "pаypal" mixes Cyrillic and Latin
+  2:13  detected  U+0430 Cyrillic Small Letter A (typographic)
+
+found: 4 marker(s) in 4 of 6 file(s), 1 mixed-script word(s)

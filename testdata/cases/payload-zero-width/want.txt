@@ -1,0 +1,6 @@
+
+note.txt
+  !! hidden payload (zero-width-binary) decodes to "HI" across 16 characters
+  (16 character(s) in the payload above; --json to list them)
+
+found: 16 marker(s) in 1 of 1 file(s), 1 decoded payload(s)

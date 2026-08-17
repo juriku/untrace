@@ -1,0 +1,5 @@
+
+dashes.txt
+  1:7  detected  U+2013 En Dash (typographic)
+
+found: 1 marker(s) in 1 of 1 file(s)

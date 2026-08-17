@@ -1,0 +1,11 @@
+
+README.md
+  3:11  replaced  U+2014 Em Dash -> "-" (typographic)
+
+src/components/Button.tsx
+  2:16  removed  U+200B Zero Width Space (hidden)
+
+src/index.ts
+  1:31  replaced  U+00A0 Non-Breaking Space -> " " (hidden)
+
+found: 3 marker(s) in 3 of 6 file(s), 3 fixed

@@ -1,0 +1,17 @@
+
+code.py
+  1:8  detected  U+2014 Em Dash (typographic)
+  2:4  detected  U+00A0 Non-Breaking Space (hidden)
+
+data.json
+  1:10  detected  U+2014 Em Dash (typographic)
+
+notes.md
+  1:15  detected  U+2014 Em Dash (typographic)
+  1:29  detected  U+201C Left Double Quotation Mark (typographic)
+  1:36  detected  U+201D Right Double Quotation Mark (typographic)
+
+page.html
+  1:5  detected  U+00A0 Non-Breaking Space (hidden)
+
+found: 7 marker(s) in 4 of 4 file(s)

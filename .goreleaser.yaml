@@ -1,0 +1,79 @@
+version: 2
+
+project_name: untrace
+
+before:
+  hooks:
+    - go mod tidy
+    - go test ./...
+
+builds:
+  - id: untrace
+    main: ./cmd/untrace
+    binary: untrace
+    env:
+      - CGO_ENABLED=0
+    goos: [linux, darwin, windows]
+    goarch: [amd64, arm64]
+    ldflags:
+      - -s -w -X main.version={{ .Version }}
+    mod_timestamp: "{{ .CommitTimestamp }}"
+
+archives:
+  - formats: [tar.gz]
+    format_overrides:
+      - goos: windows
+        formats: [zip]
+    name_template: >-
+      {{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}
+    files:
+      - README.md
+      - LICENSE
+
+checksum:
+  name_template: checksums.txt
+
+changelog:
+  sort: asc
+  filters:
+    exclude:
+      - "^docs:"
+      - "^test:"
+      - "^chore:"
+
+# Casks rather than formulas: Homebrew formulas are meant to build from source,
+# and `brews` was fully deprecated in GoReleaser v2.16.
+homebrew_casks:
+  - name: untrace
+    repository:
+      owner: juriku
+      name: homebrew-tap
+      branch: main
+      token: "{{ .Env.HOMEBREW_TAP_TOKEN }}"
+    homepage: "https://github.com/juriku/untrace"
+    description: "Detect and remove invisible characters and metadata that mark text as AI-generated"
+    license: MIT
+    binaries:
+      - untrace
+    hooks:
+      post:
+        # Downloaded binaries are quarantined by Gatekeeper, which makes the
+        # cask unusable until the attribute is cleared.
+        install: |
+          if OS.mac?
+            system_command "/usr/bin/xattr",
+              args: ["-dr", "com.apple.quarantine", "#{staged_path}/untrace"]
+          end
+
+scoops:
+  - repository:
+      owner: juriku
+      name: scoop-bucket
+      token: "{{ .Env.SCOOP_BUCKET_TOKEN }}"
+    homepage: "https://github.com/juriku/untrace"
+    description: "Detect and remove invisible characters and metadata that mark text as AI-generated"
+    license: MIT
+
+release:
+  draft: false
+  prerelease: auto

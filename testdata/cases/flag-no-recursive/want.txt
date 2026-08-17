@@ -1,0 +1,5 @@
+
+top.txt
+  1:2  detected  U+200B Zero Width Space (hidden)
+
+found: 1 marker(s) in 1 of 1 file(s)

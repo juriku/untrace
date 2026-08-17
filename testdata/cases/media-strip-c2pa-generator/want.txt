@@ -1,0 +1,10 @@
+
+ai.png [ai-generated: likely]
+  ai-declared  c2pa names "claude"
+  provenance  c2pa = "claude" (57 bytes)
+
+camera.png
+  provenance  c2pa (59 bytes) [kept: names no generator]
+  metadata  png-text Software = "Leica M11 Firmware 2.1" (31 bytes) [kept: names no generator]
+
+found: 0 marker(s) in 2 of 2 file(s), 3 metadata record(s)

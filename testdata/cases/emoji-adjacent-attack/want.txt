@@ -1,0 +1,7 @@
+
+notes.txt
+  2:25  detected  U+200B Zero Width Space (hidden)
+  2:26  detected  U+FEFF Byte Order Mark (BOM) / Zero Width No-Break Space (hidden)
+  2:42  detected  U+200D Zero Width Joiner (hidden)
+
+found: 3 marker(s) in 1 of 1 file(s)

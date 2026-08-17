@@ -1,0 +1,17 @@
+
+node_modules/pkg/dep.txt
+  1:7  detected  U+200B Zero Width Space (hidden)
+
+src/deep/allowed.tmp
+  1:7  detected  U+200B Zero Width Space (hidden)
+
+src/deep/nested.txt
+  1:7  detected  U+200B Zero Width Space (hidden)
+
+src/keep.txt
+  1:7  detected  U+200B Zero Width Space (hidden)
+
+top.txt
+  1:7  detected  U+200B Zero Width Space (hidden)
+
+found: 5 marker(s) in 5 of 7 file(s)

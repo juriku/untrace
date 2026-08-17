@@ -1,0 +1,15 @@
+- id: untrace
+  name: untrace
+  description: Fail if staged files contain hidden characters or AI watermarks.
+  entry: untrace --fail
+  language: golang
+  types: [text]
+  pass_filenames: true
+
+- id: untrace-fix
+  name: untrace (fix)
+  description: Remove hidden characters and normalise typography in staged files.
+  entry: untrace --fix
+  language: golang
+  types: [text]
+  pass_filenames: true

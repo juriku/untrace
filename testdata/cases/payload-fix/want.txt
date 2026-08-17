@@ -1,0 +1,10 @@
+
+invoice.txt
+  !! hidden payload (tag-ascii) decodes to "tracked-by:acct-99213" across 21 characters
+  (21 character(s) in the payload above; --json to list them)
+
+note.txt
+  !! hidden payload (zero-width-binary) decodes to "HI" across 16 characters
+  (16 character(s) in the payload above; --json to list them)
+
+found: 37 marker(s) in 2 of 2 file(s), 2 decoded payload(s), 37 fixed

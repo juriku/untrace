@@ -1,0 +1,18 @@
+
+homoglyph.txt
+  1:10  mixed-script  "pаypal" mixes Cyrillic and Latin
+  1:11  detected  U+0430 Cyrillic Small Letter A (typographic)
+
+tag.txt
+  !! hidden payload (tag-ascii) decodes to "tracked-by:acct-99213" across 21 characters
+  (21 character(s) in the payload above; --json to list them)
+
+variation.txt
+  !! hidden payload (variation-selector) decodes to "leak" across 4 characters
+  (4 character(s) in the payload above; --json to list them)
+
+zerowidth.txt
+  !! hidden payload (zero-width-binary) decodes to "HI" across 16 characters
+  (16 character(s) in the payload above; --json to list them)
+
+found: 42 marker(s) in 4 of 5 file(s), 1 mixed-script word(s), 3 decoded payload(s), 41 fixed

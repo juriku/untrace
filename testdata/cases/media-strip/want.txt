@@ -1,0 +1,7 @@
+
+art.png [ai-generated: likely]
+  ai-declared  png-text Software names "claude"
+  provenance  c2pa (30 bytes) [kept: names no generator]
+  metadata  png-text Software = "Claude" (15 bytes)
+
+found: 0 marker(s) in 1 of 3 file(s), 2 metadata record(s)

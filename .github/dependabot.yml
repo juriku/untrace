@@ -1,0 +1,12 @@
+version: 2
+
+# The module has no third-party dependencies, so the actions are the whole
+# supply chain.
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      actions:
+        patterns: ["*"]

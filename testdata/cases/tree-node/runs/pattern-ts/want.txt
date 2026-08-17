@@ -1,0 +1,8 @@
+
+src/components/Button.tsx
+  2:16  detected  U+200B Zero Width Space (hidden)
+
+src/index.ts
+  1:31  detected  U+00A0 Non-Breaking Space (hidden)
+
+found: 2 marker(s) in 2 of 2 file(s)

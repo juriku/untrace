@@ -1,0 +1,1 @@
+Outside docs: pаypal here.

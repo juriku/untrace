@@ -1,0 +1,14 @@
+{
+  "overrides": [
+    {
+      "files": ["docs/design/*.md", "internal/script/*.go", "README.md"],
+      "mixedScript": "ignore"
+    },
+    {
+      "files": ["docs/design/*.md", "README.md"],
+      "formats": {
+        "prose": { "typographic": "ignore" }
+      }
+    }
+  ]
+}

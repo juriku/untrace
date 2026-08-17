@@ -1,0 +1,9 @@
+
+doc.md
+  1:15  replaced  U+2014 Em Dash -> "-" (typographic)
+  4:6  replaced  U+2014 Em Dash -> "-" (typographic)
+  4:14  replaced  U+201C Left Double Quotation Mark -> "\"" (typographic)
+  4:34  replaced  U+201D Right Double Quotation Mark -> "\"" (typographic)
+  7:15  replaced  U+2014 Em Dash -> "-" (typographic)
+
+found: 5 marker(s) in 1 of 1 file(s), 5 fixed

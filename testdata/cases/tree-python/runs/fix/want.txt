@@ -1,0 +1,12 @@
+
+src/pkg/__init__.py
+  1:13  removed  U+200B Zero Width Space (hidden)
+
+src/pkg/core.py
+  2:18  replaced  U+00A0 Non-Breaking Space -> " " (hidden)
+
+tests/test_core.py
+  2:12  mixed-script  "pаypal" mixes Cyrillic and Latin
+  2:13  detected  U+0430 Cyrillic Small Letter A (typographic)
+
+found: 3 marker(s) in 3 of 5 file(s), 1 mixed-script word(s), 2 fixed

@@ -1,0 +1,6 @@
+
+doc.md
+  1:15  detected  U+2014 Em Dash (typographic)
+  4:6  detected  U+2014 Em Dash (typographic)
+
+found: 2 marker(s) in 1 of 1 file(s)

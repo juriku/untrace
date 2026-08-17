@@ -1,0 +1,33 @@
+# Session scratch: plans, reviews, handoffs
+.cache/
+
+# Build output
+/untrace
+/dist/
+
+# Go
+*.test
+*.out
+go.work
+go.work.sum
+
+# Coverage, including the subprocess profile the golden suite writes
+covdata/
+
+# VS Code extension. Scoped rather than a bare node_modules/, which would also
+# match the fixture trees under testdata/cases that exist to prove untrace skips
+# dependency directories.
+editors/vscode/node_modules/
+editors/vscode/out/
+editors/vscode/*.vsix
+
+# Downloaded by @vscode/test-cli when running extension tests
+.vscode-test/
+
+# macOS
+.DS_Store
+
+# Fixture trees under testdata/cases carry their own .gitignore files, because
+# honouring them is the behaviour under test. Git honours them too, so the files
+# they hide are force-added and stay tracked once committed. A new fixture file
+# matching one of those patterns needs `git add -f`.

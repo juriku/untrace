@@ -1,0 +1,8 @@
+
+latin.txt
+  1:9  replaced  U+00A0 Non-Breaking Space -> " " (hidden)
+
+wide.txt
+  1:5  removed  U+200B Zero Width Space (hidden)
+
+found: 2 marker(s) in 2 of 3 file(s), 2 fixed
