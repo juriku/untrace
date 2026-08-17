@@ -16,6 +16,31 @@ func TestGeneratorMatches(t *testing.T) {
 		"GIMP 2.10":            false,
 		"":                     false,
 		"Microsoft Word":       false,
+
+		"DeepSeek-V3":   true,
+		"Mistral Large": true,
+		"Perplexity AI": true,
+		"Qwen2.5-Max":   true,
+		"Kimi K2.6":     true,
+		"GLM-5.2":       true,
+		"GPT-6":         true,
+
+		// A name is a whole word, not a substring.
+		"Editor de imagenes 2.0": false,
+		"Grokking Algorithms":    false,
+		"Soraya Publishing":      false,
+		"LlamaSoft Reporting":    false,
+		"Copilots Design Suite":  false,
+		"Firefly LED Signage":    false,
+
+		// A PDF's Producer names the converter, not the author.
+		"Skia/PDF m140":                    false,
+		"jsPDF 2.5.1":                      false,
+		"Microsoft Word for Microsoft 365": false,
+
+		// A printable run lifted out of a real C2PA manifest.
+		"_generatorqClaude 3.5 Sonnet": true,
+		"Achraf Hakimi":                false,
 	}
 	for value, want := range cases {
 		t.Run(value, func(t *testing.T) {

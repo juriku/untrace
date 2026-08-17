@@ -7,7 +7,10 @@
 // the file. Only a named generator is evidence of that.
 package provenance
 
-import "strings"
+import (
+	"regexp"
+	"strings"
+)
 
 type Signal struct {
 	// Source is where the evidence came from, such as "exif Software".
@@ -17,52 +20,97 @@ type Signal struct {
 	AI bool `json:"ai"`
 }
 
-// Names matched against metadata values. Both sides are reduced to lowercase
-// letters and digits first, so punctuation in a product name cannot cause a
-// miss: the several ways vendors punctuate a product name all reduce alike.
-var generators = []string{
-	"claude", "anthropic",
-	"chatgpt", "openai", "dalle", "gpt4", "gpt5", "sora",
-	"gemini", "imagen", "google ai",
-	"midjourney",
-	"stable diffusion", "stability ai", "sdxl", "automatic1111", "comfyui",
-	"firefly",
-	"copilot",
-	"llama", "meta ai",
-	"grok", "x.ai",
-	"black forest labs", "flux.1",
-	"leonardo.ai", "ideogram", "runway", "novelai", "playground ai",
+// No leading \b: inside a C2PA manifest a CBOR length byte sits flush against
+// the name, as in "_generatorqClaude". "kimi" is the exception, since a surname
+// ends in it. A name that is also ordinary English or a company name needs a
+// version beside it, or "Firefly LED Signage" reads as Adobe Firefly.
+var generators = []struct {
+	name    string
+	pattern string
+}{
+	{"claude", `claude\b`},
+	{"anthropic", `anthropic\b`},
+	{"chatgpt", `chat ?gpt\b`},
+	{"openai", `open ?ai\b`},
+	{"dalle", `dall ?e`},
+	{"sora", `sora\b`},
+	{"midjourney", `mid ?journey\b`},
+	{"stable diffusion", `stable ?diffusion\b`},
+	{"stability ai", `stability ?ai\b`},
+	{"sdxl", `sdxl\b`},
+	{"automatic1111", `automatic1111\b`},
+	{"comfyui", `comfy ?ui\b`},
+	{"ideogram", `ideogram\b`},
+	{"novelai", `novel ?ai\b`},
+	{"leonardo.ai", `leonardo ?ai\b`},
+	{"playground ai", `playground ?ai\b`},
+	{"black forest labs", `black ?forest ?labs\b`},
+	{"deepseek", `deep ?seek\b`},
+	{"perplexity", `perplexity\b`},
+	{"mistral", `mistral\b`},
+	{"qwen", `qwen`},
+	{"moonshot", `moonshot\b`},
+	{"kimi", `\bkimi\b`},
+	{"grok", `grok\b`},
+	{"llama", `llama\b`},
+	{"gemini", `gemini\b`},
+	{"copilot", `copilot\b`},
+	{"meta ai", `meta ?ai\b`},
+	{"x.ai", `x ?ai\b`},
+	{"google ai", `google ?ai\b`},
+
+	{"gpt", `gpt ?\d`},
+	{"glm", `glm ?\d`},
+	{"flux.1", `flux ?\d`},
+	{"firefly", `firefly ?\d`},
+	{"imagen", `imagen ?\d`},
+	{"runway", `runway ?(?:ml|gen)\b`},
 }
 
-var normalized = buildNormalized()
+var compiled = compileGenerators()
 
-func buildNormalized() map[string]string {
-	out := make(map[string]string, len(generators))
+type generatorPattern struct {
+	name string
+	re   *regexp.Regexp
+}
+
+func compileGenerators() []generatorPattern {
+	out := make([]generatorPattern, 0, len(generators))
 	for _, g := range generators {
-		out[normalize(g)] = g
+		out = append(out, generatorPattern{name: g.name, re: regexp.MustCompile(g.pattern)})
 	}
 	return out
 }
 
-func normalize(s string) string {
+// Punctuation collapses to a space rather than being deleted: deleting it would
+// make "imagenes" contain "imagen".
+func fold(s string) string {
 	var b strings.Builder
+	b.Grow(len(s))
+	gap := false
 	for _, r := range strings.ToLower(s) {
 		if (r >= 'a' && r <= 'z') || (r >= '0' && r <= '9') {
+			if gap && b.Len() > 0 {
+				b.WriteByte(' ')
+			}
+			gap = false
 			b.WriteRune(r)
+			continue
 		}
+		gap = true
 	}
 	return b.String()
 }
 
 // Generator reports the AI tool named by a metadata value, if any.
 func Generator(value string) (string, bool) {
-	v := normalize(value)
+	v := fold(value)
 	if v == "" {
 		return "", false
 	}
-	for key, name := range normalized {
-		if strings.Contains(v, key) {
-			return name, true
+	for _, g := range compiled {
+		if g.re.MatchString(v) {
+			return g.name, true
 		}
 	}
 	return "", false
