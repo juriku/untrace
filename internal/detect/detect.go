@@ -12,14 +12,16 @@ import (
 )
 
 type Finding struct {
-	Line        int    `json:"line"`
-	Column      int    `json:"column"`
-	Rune        rune   `json:"-"`
-	Codepoint   string `json:"codepoint"`
-	Name        string `json:"name"`
-	Kind        string `json:"kind"`
-	Action      string `json:"action"`
-	Replacement string `json:"replacement,omitempty"`
+	Line      int    `json:"line"`
+	Column    int    `json:"column"`
+	Rune      rune   `json:"-"`
+	Codepoint string `json:"codepoint"`
+	Name      string `json:"name"`
+	Kind      string `json:"kind"`
+	Action    string `json:"action"`
+	// Always emitted, so an absent field means a build predating it rather than
+	// "delete". Read it only when Actionable; empty then means delete.
+	Replacement string `json:"replacement"`
 	Applied     bool   `json:"applied"`
 	// InPayload marks a character that belongs to a decoded run, so reports can
 	// show the payload instead of every character in it.
@@ -252,9 +254,12 @@ func (d *Detector) Run(text string) Result {
 		f.Actionable = policy.For(m) == resolve.Clean && m.CanClean &&
 			!sameRune(m.Replacement, r) && (d.FixHomoglyphs || !homoglyph)
 
+		if f.Actionable {
+			f.Replacement = m.Replacement
+		}
+
 		apply := d.Clean && f.Actionable
 		if apply && !sameRune(m.Replacement, r) {
-			f.Replacement = m.Replacement
 			f.Applied = true
 			if m.Replacement == "" {
 				f.Action = "removed"

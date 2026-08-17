@@ -5,6 +5,11 @@ them and takes them out.
 
 A single static binary, no dependencies.
 
+**[VS Code extension](editors/vscode/README.md)** ·
+[Configuration](#configuration) ·
+[Contributing](CONTRIBUTING.md) ·
+[Security](SECURITY.md)
+
 ## Start here
 
 ```
@@ -52,6 +57,19 @@ found: 5 marker(s) in 1 of 1 file(s), 5 fixed
 | **"Made by" metadata** | C2PA Content Credentials, EXIF, XMP, and the properties inside PDFs and Office files. A file is flagged `[ai-generated: likely]` only when a generator is actually named. |
 
 ## What it does not do
+
+**It cannot touch a statistical watermark, and neither can anything else that
+works on characters.** Every Claude model released on or after 2 August 2026
+carries SynthID-Text. It works by biasing the model's choice among
+near-equivalent words, so the signal lives in *which words were chosen*, spread
+across a whole passage. No characters are added and no metadata is added, so
+there is nothing in the file for untrace to find or strip. Detecting one needs
+the cryptographic key and a statistical test; removing one means rewriting the
+text. SynthID for images and audio is the same story one layer down: it lives in
+the pixel and waveform data, so deleting metadata does nothing to it.
+
+A tool that claims to strip a statistical text watermark is making a claim you
+cannot check, because the scheme is unpublished.
 
 **It never changes your words.** untrace removes and normalises individual
 characters, and removes metadata records. It does not rewrite sentences, reword
@@ -128,16 +146,12 @@ Binaries for macOS, Linux and Windows on amd64 and arm64 are attached to each
 
 ### In VS Code
 
-[`editors/vscode`](editors/vscode) reports findings as you edit, including in a
-buffer you have not saved. It shells out to the binary, so install that first
-and make sure it is on `PATH` or point `untrace.path` at it.
+[`editors/vscode`](editors/vscode) reports findings as you edit, with fixes on
+the lightbulb, and checks buffers you have not saved. It shells out to the
+binary, so install that first.
 
-| setting | default | meaning |
-|---|---|---|
-| `untrace.enable` | `true` | report findings as diagnostics |
-| `untrace.path` | `untrace` | path to the binary |
-| `untrace.run` | `onSave` | `onSave`, `onType` or `off` |
-| `untrace.strict` | `false` | report every marker, as `--strict` does |
+Settings, quick fixes and fix-on-save are documented in
+[the extension's own README](editors/vscode/README.md).
 
 ### In CI or a pre-commit hook
 
@@ -209,6 +223,11 @@ The report goes to stderr, and so does `--json`.
 Positions in `--json` are 1-based, and a column counts runes rather than bytes
 or UTF-16 units. A finding spans exactly one rune, a mixed-script word spans its
 `word`, and a payload spans `runes` characters from its line and column.
+
+`actionable` is what tells a consumer a fix exists, and `replacement` is what to
+put there. An actionable finding with no `replacement` field means delete the
+character, which is the normal case for invisible ones. `applied` records what
+`--fix` actually did, so it stays false when only reporting.
 
 Content arriving on stdin has no name, so it is classified as source and no
 path-scoped override applies. `--stdin-name path/to/file.md` resolves format,
@@ -325,9 +344,10 @@ Actions are `ignore`, `report` or `clean`. Formats are `source`, `prose`, `data`
 
 Loosening `prose` is the one most projects need. Prose is cleaned as strictly as
 source by default, so a repository whose documentation contains deliberate em
-dashes will fail `--fail` until you set it to `report` or `ignore`. Fenced code
-blocks stay strict even then, because a command someone will paste into a
-terminal is not prose.
+dashes will fail `--fail` until you set it to `report` or `ignore`. A setting you
+write covers the whole file, fenced code blocks included. Inside a fence the
+kinds you left unset go back to the stricter source rules, so loosening
+`typographic` there does not also loosen `hidden`.
 
 `overrides` scope settings to paths using gitignore glob syntax, resolved
 relative to the config file, with later entries winning. untrace uses one on

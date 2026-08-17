@@ -13,6 +13,7 @@
           "name": "Cyrillic Small Letter A",
           "kind": "typographic",
           "action": "detected",
+          "replacement": "",
           "applied": false,
           "actionable": false
         }
@@ -47,6 +48,7 @@
           "name": "Tag \"t\"",
           "kind": "tag",
           "action": "detected",
+          "replacement": "",
           "applied": false,
           "in_payload": true,
           "actionable": true
@@ -58,6 +60,7 @@
           "name": "Tag \"r\"",
           "kind": "tag",
           "action": "detected",
+          "replacement": "",
           "applied": false,
           "in_payload": true,
           "actionable": true
@@ -69,6 +72,7 @@
           "name": "Tag \"a\"",
           "kind": "tag",
           "action": "detected",
+          "replacement": "",
           "applied": false,
           "in_payload": true,
           "actionable": true
@@ -80,6 +84,7 @@
           "name": "Tag \"c\"",
           "kind": "tag",
           "action": "detected",
+          "replacement": "",
           "applied": false,
           "in_payload": true,
           "actionable": true
@@ -91,6 +96,7 @@
           "name": "Tag \"k\"",
           "kind": "tag",
           "action": "detected",
+          "replacement": "",
           "applied": false,
           "in_payload": true,
           "actionable": true
@@ -102,6 +108,7 @@
           "name": "Tag \"e\"",
           "kind": "tag",
           "action": "detected",
+          "replacement": "",
           "applied": false,
           "in_payload": true,
           "actionable": true
@@ -113,6 +120,7 @@
           "name": "Tag \"d\"",
           "kind": "tag",
           "action": "detected",
+          "replacement": "",
           "applied": false,
           "in_payload": true,
           "actionable": true
@@ -124,6 +132,7 @@
           "name": "Tag \"-\"",
           "kind": "tag",
           "action": "detected",
+          "replacement": "",
           "applied": false,
           "in_payload": true,
           "actionable": true
@@ -135,6 +144,7 @@
           "name": "Tag \"b\"",
           "kind": "tag",
           "action": "detected",
+          "replacement": "",
           "applied": false,
           "in_payload": true,
           "actionable": true
@@ -146,6 +156,7 @@
           "name": "Tag \"y\"",
           "kind": "tag",
           "action": "detected",
+          "replacement": "",
           "applied": false,
           "in_payload": true,
           "actionable": true
@@ -157,6 +168,7 @@
           "name": "Tag \":\"",
           "kind": "tag",
           "action": "detected",
+          "replacement": "",
           "applied": false,
           "in_payload": true,
           "actionable": true
@@ -168,6 +180,7 @@
           "name": "Tag \"a\"",
           "kind": "tag",
           "action": "detected",
+          "replacement": "",
           "applied": false,
           "in_payload": true,
           "actionable": true
@@ -179,6 +192,7 @@
           "name": "Tag \"c\"",
           "kind": "tag",
           "action": "detected",
+          "replacement": "",
           "applied": false,
           "in_payload": true,
           "actionable": true
@@ -190,6 +204,7 @@
           "name": "Tag \"c\"",
           "kind": "tag",
           "action": "detected",
+          "replacement": "",
           "applied": false,
           "in_payload": true,
           "actionable": true
@@ -201,6 +216,7 @@
           "name": "Tag \"t\"",
           "kind": "tag",
           "action": "detected",
+          "replacement": "",
           "applied": false,
           "in_payload": true,
           "actionable": true
@@ -212,6 +228,7 @@
           "name": "Tag \"-\"",
           "kind": "tag",
           "action": "detected",
+          "replacement": "",
           "applied": false,
           "in_payload": true,
           "actionable": true
@@ -223,6 +240,7 @@
           "name": "Tag \"9\"",
           "kind": "tag",
           "action": "detected",
+          "replacement": "",
           "applied": false,
           "in_payload": true,
           "actionable": true
@@ -234,6 +252,7 @@
           "name": "Tag \"9\"",
           "kind": "tag",
           "action": "detected",
+          "replacement": "",
           "applied": false,
           "in_payload": true,
           "actionable": true
@@ -245,6 +264,7 @@
           "name": "Tag \"2\"",
           "kind": "tag",
           "action": "detected",
+          "replacement": "",
           "applied": false,
           "in_payload": true,
           "actionable": true
@@ -256,6 +276,7 @@
           "name": "Tag \"1\"",
           "kind": "tag",
           "action": "detected",
+          "replacement": "",
           "applied": false,
           "in_payload": true,
           "actionable": true
@@ -267,6 +288,7 @@
           "name": "Tag \"3\"",
           "kind": "tag",
           "action": "detected",
+          "replacement": "",
           "applied": false,
           "in_payload": true,
           "actionable": true
@@ -297,6 +319,7 @@
           "name": "Ideographic Variation Selector-109",
           "kind": "ideographic-vs",
           "action": "detected",
+          "replacement": "",
           "applied": false,
           "in_payload": true,
           "actionable": true
@@ -308,6 +331,7 @@
           "name": "Ideographic Variation Selector-102",
           "kind": "ideographic-vs",
           "action": "detected",
+          "replacement": "",
           "applied": false,
           "in_payload": true,
           "actionable": true
@@ -319,6 +343,7 @@
           "name": "Ideographic Variation Selector-98",
           "kind": "ideographic-vs",
           "action": "detected",
+          "replacement": "",
           "applied": false,
           "in_payload": true,
           "actionable": true
@@ -330,6 +355,7 @@
           "name": "Ideographic Variation Selector-108",
           "kind": "ideographic-vs",
           "action": "detected",
+          "replacement": "",
           "applied": false,
           "in_payload": true,
           "actionable": true
@@ -360,6 +386,7 @@
           "name": "Zero Width Space",
           "kind": "hidden",
           "action": "detected",
+          "replacement": "",
           "applied": false,
           "in_payload": true,
           "actionable": true
@@ -371,6 +398,7 @@
           "name": "Zero Width Non-Joiner",
           "kind": "hidden",
           "action": "detected",
+          "replacement": "",
           "applied": false,
           "in_payload": true,
           "actionable": true
@@ -382,6 +410,7 @@
           "name": "Zero Width Space",
           "kind": "hidden",
           "action": "detected",
+          "replacement": "",
           "applied": false,
           "in_payload": true,
           "actionable": true
@@ -393,6 +422,7 @@
           "name": "Zero Width Space",
           "kind": "hidden",
           "action": "detected",
+          "replacement": "",
           "applied": false,
           "in_payload": true,
           "actionable": true
@@ -404,6 +434,7 @@
           "name": "Zero Width Non-Joiner",
           "kind": "hidden",
           "action": "detected",
+          "replacement": "",
           "applied": false,
           "in_payload": true,
           "actionable": true
@@ -415,6 +446,7 @@
           "name": "Zero Width Space",
           "kind": "hidden",
           "action": "detected",
+          "replacement": "",
           "applied": false,
           "in_payload": true,
           "actionable": true
@@ -426,6 +458,7 @@
           "name": "Zero Width Space",
           "kind": "hidden",
           "action": "detected",
+          "replacement": "",
           "applied": false,
           "in_payload": true,
           "actionable": true
@@ -437,6 +470,7 @@
           "name": "Zero Width Space",
           "kind": "hidden",
           "action": "detected",
+          "replacement": "",
           "applied": false,
           "in_payload": true,
           "actionable": true
@@ -448,6 +482,7 @@
           "name": "Zero Width Space",
           "kind": "hidden",
           "action": "detected",
+          "replacement": "",
           "applied": false,
           "in_payload": true,
           "actionable": true
@@ -459,6 +494,7 @@
           "name": "Zero Width Non-Joiner",
           "kind": "hidden",
           "action": "detected",
+          "replacement": "",
           "applied": false,
           "in_payload": true,
           "actionable": true
@@ -470,6 +506,7 @@
           "name": "Zero Width Space",
           "kind": "hidden",
           "action": "detected",
+          "replacement": "",
           "applied": false,
           "in_payload": true,
           "actionable": true
@@ -481,6 +518,7 @@
           "name": "Zero Width Space",
           "kind": "hidden",
           "action": "detected",
+          "replacement": "",
           "applied": false,
           "in_payload": true,
           "actionable": true
@@ -492,6 +530,7 @@
           "name": "Zero Width Non-Joiner",
           "kind": "hidden",
           "action": "detected",
+          "replacement": "",
           "applied": false,
           "in_payload": true,
           "actionable": true
@@ -503,6 +542,7 @@
           "name": "Zero Width Space",
           "kind": "hidden",
           "action": "detected",
+          "replacement": "",
           "applied": false,
           "in_payload": true,
           "actionable": true
@@ -514,6 +554,7 @@
           "name": "Zero Width Space",
           "kind": "hidden",
           "action": "detected",
+          "replacement": "",
           "applied": false,
           "in_payload": true,
           "actionable": true
@@ -525,6 +566,7 @@
           "name": "Zero Width Non-Joiner",
           "kind": "hidden",
           "action": "detected",
+          "replacement": "",
           "applied": false,
           "in_payload": true,
           "actionable": true

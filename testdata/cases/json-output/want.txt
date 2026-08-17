@@ -13,6 +13,7 @@
           "name": "Zero Width Space",
           "kind": "hidden",
           "action": "detected",
+          "replacement": "",
           "applied": false,
           "actionable": true
         }

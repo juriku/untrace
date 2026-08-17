@@ -1,8 +1,9 @@
 import * as vscode from "vscode";
 
+import { Actionable, Actions } from "./actions";
 import { Freshness } from "./freshness";
 import { runeSpanToUtf16, runeToUtf16 } from "./positions";
-import { check, FileReport, UntraceError } from "./untrace";
+import { check, FileReport, Finding, UntraceError } from "./untrace";
 
 const SOURCE = "untrace";
 
@@ -11,6 +12,7 @@ let output: vscode.OutputChannel;
 let warnedMissingBinary = false;
 const pending = new Map<string, NodeJS.Timeout>();
 const freshness = new Freshness();
+const lastFindings = new Map<string, Finding[]>();
 
 export function activate(context: vscode.ExtensionContext): void {
   diagnostics = vscode.languages.createDiagnosticCollection(SOURCE);
@@ -20,10 +22,16 @@ export function activate(context: vscode.ExtensionContext): void {
   context.subscriptions.push(
     vscode.workspace.onDidOpenTextDocument((doc) => void lint(doc)),
     vscode.workspace.onDidSaveTextDocument((doc) => void lint(doc)),
+    vscode.languages.registerCodeActionsProvider(
+      { scheme: "file" },
+      new Actions((uri) => lastFindings.get(uri.toString()) ?? []),
+      { providedCodeActionKinds: Actions.kinds },
+    ),
     vscode.workspace.onDidCloseTextDocument((doc) => {
       diagnostics.delete(doc.uri);
       clearPending(doc);
       freshness.forget(doc.uri.toString());
+      lastFindings.delete(doc.uri.toString());
     }),
     vscode.workspace.onDidChangeTextDocument((e) => {
       if (settings().run === "onType") {
@@ -111,6 +119,7 @@ async function lint(doc: vscode.TextDocument, force = false): Promise<void> {
     if (!freshness.accept(key, version)) {
       return;
     }
+    lastFindings.set(doc.uri.toString(), report.findings ?? []);
     diagnostics.set(doc.uri, toDiagnostics(doc, report));
   } catch (err) {
     if (err instanceof UntraceError && err.missingBinary) {
@@ -163,19 +172,19 @@ function toDiagnostics(doc: vscode.TextDocument, report: FileReport): vscode.Dia
     if (f.in_payload) {
       continue;
     }
-    out.push(
-      diagnostic(
-        doc,
-        f.line,
-        f.column,
-        1,
-        `${f.codepoint} ${f.name} (${f.kind})`,
-        f.actionable
-          ? vscode.DiagnosticSeverity.Warning
-          : vscode.DiagnosticSeverity.Information,
-        f.codepoint,
-      ),
+    const d: Actionable = diagnostic(
+      doc,
+      f.line,
+      f.column,
+      1,
+      `${f.codepoint} ${f.name} (${f.kind})`,
+      f.actionable
+        ? vscode.DiagnosticSeverity.Warning
+        : vscode.DiagnosticSeverity.Information,
+      f.codepoint,
     );
+    d.finding = f;
+    out.push(d);
   }
 
   return out;

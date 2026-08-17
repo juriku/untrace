@@ -9,6 +9,9 @@ export interface Finding {
   action: string;
   applied: boolean;
   actionable: boolean;
+  // Absent on an actionable finding means delete the character, which is the
+  // normal case for an invisible one.
+  replacement?: string;
   in_payload?: boolean;
 }
 

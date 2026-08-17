@@ -45,6 +45,7 @@
           "name": "Em Dash",
           "kind": "typographic",
           "action": "detected",
+          "replacement": "-",
           "applied": false,
           "actionable": true
         }
@@ -93,6 +94,7 @@
           "name": "Em Dash",
           "kind": "typographic",
           "action": "detected",
+          "replacement": "-",
           "applied": false,
           "actionable": true
         },
@@ -103,6 +105,7 @@
           "name": "Em Dash",
           "kind": "typographic",
           "action": "detected",
+          "replacement": "-",
           "applied": false,
           "actionable": true
         }
@@ -120,6 +123,7 @@
           "name": "Non-Breaking Space",
           "kind": "hidden",
           "action": "detected",
+          "replacement": " ",
           "applied": false,
           "actionable": true
         },
@@ -130,6 +134,7 @@
           "name": "Em Dash",
           "kind": "typographic",
           "action": "detected",
+          "replacement": "-",
           "applied": false,
           "actionable": true
         }
@@ -173,6 +178,7 @@
           "name": "Zero Width Space",
           "kind": "hidden",
           "action": "detected",
+          "replacement": "",
           "applied": false,
           "actionable": true
         }
@@ -215,6 +221,7 @@
           "name": "Zero Width Space",
           "kind": "hidden",
           "action": "detected",
+          "replacement": "",
           "applied": false,
           "actionable": true
         }
