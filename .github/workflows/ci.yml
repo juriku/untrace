@@ -134,6 +134,11 @@ jobs:
           cache: npm
           cache-dependency-path: editors/vscode/package-lock.json
 
+      # The integration test builds the binary the extension shells out to.
+      - uses: actions/setup-go@v7
+        with:
+          go-version: stable
+
       - name: Install
         run: npm ci
 
@@ -142,6 +147,10 @@ jobs:
 
       - name: Test
         run: npm test
+
+      # Linux runners have no display server, and VS Code needs one.
+      - name: Integration test
+        run: xvfb-run -a npm run test:integration
 
   self-scan:
     runs-on: ubuntu-latest

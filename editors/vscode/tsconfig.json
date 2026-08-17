@@ -4,7 +4,7 @@
     "moduleResolution": "nodenext",
     "target": "es2022",
     "lib": ["es2022"],
-    "types": ["node", "vscode"],
+    "types": ["node", "vscode", "mocha"],
     "outDir": "out",
     "rootDir": "src",
     "sourceMap": true,
@@ -16,5 +16,7 @@
     "skipLibCheck": true
   },
   "include": ["src"],
-  "exclude": ["src/**/*.test.ts"]
+  // Non-recursive on purpose: src/test must be emitted, since vscode-test runs
+  // compiled JavaScript.
+  "exclude": ["src/*.test.ts"]
 }

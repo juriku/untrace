@@ -13,9 +13,25 @@
   "engines": {
     "vscode": "^1.104.0"
   },
-  "categories": ["Linters"],
+  "categories": [
+    "Linters"
+  ],
+  "keywords": [
+    "unicode",
+    "invisible characters",
+    "zero width space",
+    "homoglyph",
+    "lookalike letters",
+    "bidi",
+    "trojan source",
+    "c2pa",
+    "ai detection",
+    "watermark"
+  ],
   "main": "./out/extension.js",
-  "activationEvents": ["onStartupFinished"],
+  "activationEvents": [
+    "onStartupFinished"
+  ],
   "contributes": {
     "configuration": {
       "title": "untrace",
@@ -32,7 +48,11 @@
         },
         "untrace.run": {
           "type": "string",
-          "enum": ["onSave", "onType", "off"],
+          "enum": [
+            "onSave",
+            "onType",
+            "off"
+          ],
           "default": "onSave",
           "enumDescriptions": [
             "Check when a file is opened and saved.",
@@ -60,11 +80,16 @@
     "watch": "tsc -p . -w",
     "typecheck": "tsc -p tsconfig.test.json",
     "test": "node --test src/*.test.ts",
+    "test:integration": "vscode-test",
     "vscode:prepublish": "npm run compile"
   },
   "devDependencies": {
+    "@types/mocha": "^10.0.10",
     "@types/node": "^26.2.0",
     "@types/vscode": "^1.104.0",
+    "@vscode/test-cli": "^0.0.15",
+    "@vscode/test-electron": "^3.1.0",
+    "mocha": "^11.8.0",
     "typescript": "^7.0.2"
   }
 }
