@@ -1,0 +1,8 @@
+
+config.json
+  2:17  replaced  U+201C Left Double Quotation Mark -> "\\\"" (typographic)
+  2:22  replaced  U+201D Right Double Quotation Mark -> "\\\"" (typographic)
+  2:31  replaced  U+2014 Em Dash -> "-" (typographic)
+  3:14  removed  U+200C Zero Width Non-Joiner (hidden)
+
+found: 4 marker(s) in 1 of 1 file(s), 4 fixed

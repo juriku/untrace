@@ -1,0 +1,7 @@
+
+report.pdf [ai-generated: likely]
+  ai-declared  pdf-property Producer names "claude"
+  metadata  pdf-property Producer = "Claude" [still present elsewhere in the file]
+  metadata  pdf-property XMP = "present" [kept: names no generator]
+
+found: 0 marker(s) in 1 of 1 file(s), 2 metadata record(s)

@@ -70,23 +70,27 @@ func TestUnclosedFenceRunsToEndOfFile(t *testing.T) {
 	}
 }
 
-func TestInRegionTightensALooserPolicy(t *testing.T) {
-	// Office ignores typography; inside a code region the source rules apply.
-	office := PolicyFor(FormatOffice)
-	if office.Typographic != Ignore {
-		t.Fatalf("office typographic = %v, want Ignore", office.Typographic)
-	}
+// Only prose and notebook ever carry regions, so this is the reachable case.
+func TestInRegionKeepsWhatConfigAskedFor(t *testing.T) {
+	ignore := Ignore
+	prose := PolicyFor(FormatProse).Override(nil, &ignore, nil)
 
-	code := office.InRegion(RegionCode)
-	if code.Typographic != Clean {
-		t.Errorf("code region typographic = %v, want Clean", code.Typographic)
+	code := prose.InRegion(RegionCode)
+	if code.Typographic != Ignore {
+		t.Errorf("code region typographic = %v, want the configured Ignore", code.Typographic)
 	}
-	if code.Format != FormatOffice {
+	if code.Format != FormatProse {
 		t.Errorf("region policy lost the original format: %v", code.Format)
 	}
+}
 
-	if same := office.InRegion(RegionDefault); same.Typographic != Ignore {
-		t.Errorf("default region changed the policy: %v", same.Typographic)
+func TestInRegionTightensKindsConfigLeftAlone(t *testing.T) {
+	ignore := Ignore
+	prose := PolicyFor(FormatProse).Override(nil, &ignore, nil)
+
+	code := prose.InRegion(RegionCode)
+	if code.Hidden != Clean {
+		t.Errorf("code region hidden = %v, want Clean", code.Hidden)
 	}
 }
 
@@ -133,6 +137,30 @@ func TestFencedCodeKeepsPerRuneExemptions(t *testing.T) {
 		t.Errorf("fenced per-rune count = %d, want %d", got, len(office.PerRune))
 	}
 }
+
+// resolvers.md records R10 as changing no outcome. This fails when that stops
+// being true, so the doc cannot drift from the code.
+func TestRegionNeverChangesAnOutcome(t *testing.T) {
+	actions := []*Action{nil, ptrTo(Ignore), ptrTo(Report), ptrTo(Clean)}
+
+	for _, f := range []Format{FormatProse, FormatNotebook} {
+		for _, hidden := range actions {
+			for _, typographic := range actions {
+				for _, ivs := range actions {
+					p := PolicyFor(f).Override(hidden, typographic, ivs)
+					c := p.InRegion(RegionCode)
+					if p.Hidden != c.Hidden || p.Typographic != c.Typographic ||
+						p.IVS != c.IVS || p.Tag != c.Tag {
+						t.Fatalf("%v region differs from default: %v vs %v",
+							f, p, c)
+					}
+				}
+			}
+		}
+	}
+}
+
+func ptrTo(a Action) *Action { return &a }
 
 func TestNilRegionsAreDefault(t *testing.T) {
 	var r Regions

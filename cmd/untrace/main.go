@@ -62,11 +62,15 @@ func (m *stripMode) Set(v string) error {
 func (m *stripMode) IsBoolFlag() bool { return true }
 
 func (m stripMode) shouldStrip(f media.Finding) bool {
+	return m.shouldStripValue(f.Value)
+}
+
+func (m stripMode) shouldStripValue(value string) bool {
 	switch m {
 	case stripAll:
 		return true
 	case stripAI:
-		_, ai := provenance.Generator(f.Value)
+		_, ai := provenance.Generator(value)
 		return ai
 	}
 	return false
@@ -120,7 +124,7 @@ func policyFor(format resolve.Format, r config.Resolved) resolve.Policy {
 	return p.Override(parseAction(o.Hidden), parseAction(o.Typographic), parseAction(o.IVS))
 }
 
-func (o options) detector(mo markers.Options, format resolve.Format,
+func (o options) detector(path string, mo markers.Options, format resolve.Format,
 	resolved config.Resolved, text string) *detect.Detector {
 
 	return &detect.Detector{
@@ -131,6 +135,7 @@ func (o options) detector(mo markers.Options, format resolve.Format,
 		MixedScript:   mixedAction(resolved),
 		FixHomoglyphs: o.fixHomoglyphs,
 		Regions:       resolve.RegionsFor(format, text),
+		Rewrite:       resolve.RewriterFor(path),
 	}
 }
 
@@ -160,6 +165,8 @@ type metaRecord struct {
 	Value    string `json:"value,omitempty"`
 	Bytes    int    `json:"bytes,omitempty"`
 	Stripped bool   `json:"stripped,omitempty"`
+	// Stripped, yet the same value is still present somewhere unreachable.
+	Residue bool `json:"residue,omitempty"`
 }
 
 type fileReport struct {
@@ -234,7 +241,7 @@ func run() int {
 	fs.BoolVar(&opt.noDefaultIgnores, "no-default-ignores", false,
 		"descend into dependency and cache directories")
 	fs.Var(&opt.stripMetadata, "strip-metadata",
-		"with --fix, remove image metadata that names an AI generator; =all removes every record")
+		"with --fix, remove image, document and PDF metadata that names an AI generator; =all removes every record")
 	fs.BoolVar(&opt.strict, "strict", false,
 		"report every marker, including ones doing a legitimate job such as emoji joiners")
 	fs.BoolVar(&opt.fixHomoglyphs, "fix-homoglyphs", false,
@@ -347,7 +354,7 @@ func runStdin(opt options, mo markers.Options, cfg *config.Config) fileReport {
 	}
 
 	resolved := cfg.For(relativeTo(cfg.Path, name))
-	d := opt.detector(mo, format, resolved, dec.Text)
+	d := opt.detector(name, mo, format, resolved, dec.Text)
 	res := d.Run(dec.Text)
 
 	out := dec.Text
@@ -441,7 +448,7 @@ func processFile(path string, opt options, mo markers.Options, cfg *config.Confi
 	rep.Encoding = dec.Enc.String()
 
 	resolved := cfg.For(relativeTo(cfg.Path, path))
-	d := opt.detector(mo, format, resolved, dec.Text)
+	d := opt.detector(path, mo, format, resolved, dec.Text)
 	res := d.Run(dec.Text)
 	rep.Findings = res.Findings
 	rep.Payloads = res.Payloads
@@ -582,8 +589,7 @@ func processMedia(path string, data []byte, opt options) fileReport {
 
 // Office files and PDFs are containers. Their body text is scanned under the
 // format policy, which is what lets a Word document keep its em dashes while
-// still being checked for hidden characters. Rewriting them would mean
-// repacking the container, so they are reported and never fixed.
+// still being checked for hidden characters.
 func processDocument(path string, data []byte, opt options, mo markers.Options,
 	cfg *config.Config, format resolve.Format) fileReport {
 
@@ -600,21 +606,75 @@ func processDocument(path string, data []byte, opt options, mo markers.Options,
 		})
 	}
 
-	if doc.Text == "" {
-		rep.assessProvenance()
+	var fixOpt docmeta.FixOptions
+	if opt.fix && opt.stripMetadata != stripNone {
+		fixOpt.Strip = func(f docmeta.Finding) bool {
+			return opt.stripMetadata.shouldStripValue(f.Value)
+		}
+		for i := range rep.Metadata {
+			rep.Metadata[i].Stripped = opt.stripMetadata.shouldStripValue(rep.Metadata[i].Value)
+		}
+	}
+
+	// A PDF has metadata and no extractable body text, so returning early on
+	// empty text would make its metadata unstrippable.
+	if doc.Text != "" {
+		resolved := cfg.For(relativeTo(cfg.Path, path))
+
+		d := opt.detector(path, mo, format, resolved, doc.Text)
+		d.Clean = opt.fix
+		res := d.Run(doc.Text)
+		rep.Findings = res.Findings
+		rep.Payloads = res.Payloads
+		rep.Mixed = res.Mixed
+		rep.Suppressed = res.Suppressed
+
+		if opt.fix {
+			// The splice runs per text span, so it needs its own detector:
+			// positions from the concatenated document would not line up
+			// inside one span.
+			span := opt.detector(path, mo, format, resolved, doc.Text)
+			span.Clean = true
+			fixOpt.Text = func(s string) string { return span.Run(s).Text }
+		}
+	}
+
+	rep.assessProvenance()
+
+	if !opt.fix || (fixOpt.Text == nil && fixOpt.Strip == nil) {
 		return rep
 	}
 
-	resolved := cfg.For(relativeTo(cfg.Path, path))
-	d := opt.detector(mo, format, resolved, doc.Text)
-	d.Clean = false
-	res := d.Run(doc.Text)
-	rep.Findings = res.Findings
-	rep.Payloads = res.Payloads
-	rep.Mixed = res.Mixed
-	rep.Suppressed = res.Suppressed
-	rep.assessProvenance()
+	out, changed, err := docmeta.Fix(data, fixOpt)
+	if err != nil {
+		rep.Error = err.Error()
+		return rep
+	}
+	if !changed {
+		return rep
+	}
+	rep.markResidue(out)
+	if err := textfile.WriteAtomic(path, out); err != nil {
+		rep.Error = err.Error()
+	}
 	return rep
+}
+
+func (r *fileReport) markResidue(out []byte) {
+	var stripped []string
+	for _, m := range r.Metadata {
+		if m.Stripped {
+			stripped = append(stripped, m.Value)
+		}
+	}
+	left := docmeta.Residue(out, stripped)
+	for i := range r.Metadata {
+		for _, v := range left {
+			if r.Metadata[i].Value == v {
+				r.Metadata[i].Residue = true
+			}
+		}
+	}
 }
 
 // assessProvenance reads the file's own metadata as evidence about its origin.

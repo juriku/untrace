@@ -45,6 +45,9 @@ type Detector struct {
 	// Regions marks lines that follow different rules, such as fenced code
 	// inside prose. Nil means the whole document uses Policy as given.
 	Regions resolve.Regions
+	// Rewrite adapts a replacement to the document's syntax. A replacement it
+	// rejects makes the finding report-only. Nil writes replacements literally.
+	Rewrite resolve.Rewriter
 }
 
 type MixedWord struct {
@@ -254,8 +257,17 @@ func (d *Detector) Run(text string) Result {
 		f.Actionable = policy.For(m) == resolve.Clean && m.CanClean &&
 			!sameRune(m.Replacement, r) && (d.FixHomoglyphs || !homoglyph)
 
+		replacement := m.Replacement
+		if f.Actionable && d.Rewrite != nil && replacement != "" {
+			safe, ok := d.Rewrite(replacement)
+			if !ok {
+				f.Actionable = false
+			}
+			replacement = safe
+		}
+
 		if f.Actionable {
-			f.Replacement = m.Replacement
+			f.Replacement = replacement
 		}
 
 		apply := d.Clean && f.Actionable
@@ -266,7 +278,7 @@ func (d *Detector) Run(text string) Result {
 			} else {
 				f.Action = "replaced"
 			}
-			write(m.Replacement)
+			write(replacement)
 			res.Changed = true
 		} else {
 			write(orig)

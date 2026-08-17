@@ -1,0 +1,7 @@
+
+report.docx
+  1:10  mixed-script  "pаypal" mixes Cyrillic and Latin
+  1:11  detected  U+0430 Cyrillic Small Letter A (typographic)
+  1:38  removed  U+200B Zero Width Space (hidden)
+
+found: 2 marker(s) in 1 of 1 file(s), 1 mixed-script word(s), 1 fixed

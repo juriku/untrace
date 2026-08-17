@@ -370,8 +370,8 @@ func TestDetectorIsIdenticalOnEveryRoute(t *testing.T) {
 	mo := markers.Options{Typographic: true, IVS: true}
 
 	text := newDetectorText()
-	plain := opt.detector(mo, resolve.FormatSource, config.Resolved{}, text)
-	container := opt.detector(mo, resolve.FormatSource, config.Resolved{}, text)
+	plain := opt.detector("a.go", mo, resolve.FormatSource, config.Resolved{}, text)
+	container := opt.detector("a.go", mo, resolve.FormatSource, config.Resolved{}, text)
 	container.Clean = false
 
 	if plain.FixHomoglyphs != container.FixHomoglyphs {

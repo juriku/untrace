@@ -102,7 +102,7 @@ func TestPolicyTable(t *testing.T) {
 		FormatNotebook: {Clean, Clean, Clean, Clean},
 		FormatMarkup:   {Clean, Clean, Clean, Clean},
 		FormatPDF:      {Clean, Clean, Clean, Clean},
-		FormatOffice:   {Clean, Ignore, Clean, Clean},
+		FormatOffice:   {Clean, Clean, Clean, Clean},
 		FormatLog:      {Ignore, Ignore, Ignore, Ignore},
 	}
 

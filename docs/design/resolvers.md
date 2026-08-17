@@ -180,7 +180,7 @@ The same characters, resolved differently:
 | R7 density | not built |
 | R8 payload decode | built, all three schemes |
 | R9 grapheme legitimacy | built |
-| R10 region | built for Markdown fences; only changes an outcome once a config loosens a format, since every format is otherwise equally strict |
+| R10 region | built for Markdown fences, and currently changes no outcome at all. Every format that carries regions is already as strict as source, and a configured action is deliberately carried into the fence, so there is nothing left for the region to decide. It becomes live when R11 lands or when a format's default stops matching source. Pinned by `TestRegionNeverChangesAnOutcome` |
 | R11 code adjacency | not built |
 | R12 config | built, including glob-scoped overrides |
 | R13 inline suppression | built |

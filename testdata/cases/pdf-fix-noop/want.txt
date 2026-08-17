@@ -1,0 +1,8 @@
+
+report.pdf [ai-generated: likely]
+  ai-declared  pdf-property Producer names "claude"
+  metadata  pdf-property Producer = "Claude"
+  metadata  pdf-property Creator = "Acme Editor"
+  metadata  pdf-property Title = "Quarterly Report"
+
+found: 0 marker(s) in 1 of 1 file(s), 3 metadata record(s)

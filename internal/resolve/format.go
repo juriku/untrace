@@ -165,7 +165,6 @@ func PolicyFor(f Format) Policy {
 		p.Hidden, p.Typographic, p.IVS, p.Tag = Ignore, Ignore, Ignore, Ignore
 
 	case FormatOffice:
-		p.Typographic = Ignore
 		p.PerRune = map[rune]Action{}
 		for r := range markers.WordCommonRunes() {
 			p.PerRune[r] = Ignore

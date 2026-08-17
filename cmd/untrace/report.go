@@ -80,7 +80,10 @@ func printReport(w io.Writer, reports []fileReport, sum summary, opt options, co
 				size = fmt.Sprintf(" (%d bytes)", md.Bytes)
 			}
 			kept := ""
-			if opt.fix && opt.stripMetadata == stripAI && !md.Stripped {
+			switch {
+			case md.Residue:
+				kept = p.paint(ansiRed, " [still present elsewhere in the file]")
+			case opt.fix && opt.stripMetadata == stripAI && !md.Stripped:
 				kept = p.paint(ansiDim, " [kept: names no generator]")
 			}
 			if md.Value != "" {

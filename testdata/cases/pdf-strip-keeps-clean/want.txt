@@ -1,0 +1,7 @@
+
+photo-scan.pdf
+  metadata  pdf-property Producer = "Acme Scanner 4" [kept: names no generator]
+  metadata  pdf-property Creator = "Leica M11" [kept: names no generator]
+  metadata  pdf-property Title = "Field Notes" [kept: names no generator]
+
+found: 0 marker(s) in 1 of 1 file(s), 3 metadata record(s)

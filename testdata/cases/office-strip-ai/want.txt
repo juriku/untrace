@@ -1,0 +1,9 @@
+
+report.docx [ai-generated: likely]
+  ai-declared  ooxml-property lastModifiedBy names "claude"
+  metadata  ooxml-property creator = "Jane Doe" [kept: names no generator]
+  metadata  ooxml-property lastModifiedBy = "Claude"
+  metadata  ooxml-property Application = "Microsoft Word" [kept: names no generator]
+  1:57  removed  U+200B Zero Width Space (hidden)
+
+found: 1 marker(s) in 1 of 1 file(s), 3 metadata record(s), 1 fixed

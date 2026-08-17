@@ -76,10 +76,26 @@ characters, and removes metadata records. It does not rewrite sentences, reword
 anything or paraphrase. Whatever lives in the words themselves it leaves exactly
 as you wrote it.
 
-**It does not rewrite documents or PDFs.** Taking a record out of a PDF means
-rebuilding its cross-reference table, and out of an Office file means repacking
-the archive, either of which can corrupt the file. Those are reported instead.
-Images are the exception, behind `--strip-metadata`.
+**It edits documents in place, it never repacks them.** Word, Excel, PowerPoint
+and OpenDocument files are fixed by copying every part of the archive across
+untouched except the text, which is edited in place. A PDF's `/Producer` and
+`/Creator` are emptied without changing the file's byte length, so its
+cross-reference table stays valid and nothing is rebuilt. Image and document
+metadata are removed behind `--strip-metadata`.
+
+**A PDF can still name its generator somewhere untrace cannot reach.** Values
+inside compressed object streams, hex strings, and XMP packets are not edited. If
+a value untrace stripped is still in the file, it says so rather than reporting
+the file clean. Body text inside a PDF is not read at all, so a hidden character
+in a PDF's text is neither found nor removed.
+
+**It will not break a file to fix it.** A curly quote normalises to a straight
+one, which is a string delimiter in some formats. In JSON, JSONC and notebooks
+the replacement is escaped, so the file stays valid and the text still reads
+`"like this"`. In YAML, TOML and INI the correct escape depends on which quoting
+style encloses the character, which cannot be known without parsing the file, so
+curly quotes there are reported and left alone. Every other marker in those
+files is still fixed.
 
 **It reads signed credentials, it does not verify them.** A C2PA manifest naming
 a generator is evidence that tool appears in the file's history, not proof the
@@ -192,11 +208,13 @@ before deciding what its characters *mean*:
 | em dash | ignored | ignored | normalised to `-` |
 | curly quotes | ignored | ignored | normalised to `"` |
 | non-breaking space | ignored | ignored | normalised to a space |
-| zero-width space | removed | ignored | removed |
+| zero-width space | reported | ignored | removed |
 
 Only two formats deviate. **Word and other Office documents** ignore the twelve
 characters those editors insert by themselves: you type `--` and Word makes it
-an em dash, so its presence says nothing about who wrote the document. **Log
+an em dash, so its presence says nothing about who wrote the document. A
+zero-width space in one is not ignored, but it is only reported: taking it out
+would mean repacking the archive, so no document is ever rewritten. **Log
 files** are ignored outright. Everything else is treated the same way.
 
 No context excuses the direction **override** U+202E, the Trojan Source vector.
@@ -241,8 +259,8 @@ path would get.
 ```
 --fix, -c              rewrite files
 --fix-homoglyphs       with --fix, also rewrite confusable letters to Latin
---strip-metadata       with --fix, remove image metadata naming an AI generator
---strip-metadata=all   with --fix, remove every image metadata record
+--strip-metadata       with --fix, remove metadata naming an AI generator
+--strip-metadata=all   with --fix, remove every metadata record
 --stdin                read the document from stdin, write it to stdout
 --stdin-name PATH      with --stdin, resolve format and config as this path
 --json                 emit findings as JSON (stderr in --stdin mode)

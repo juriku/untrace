@@ -29,9 +29,9 @@ report.docx [ai-generated: likely]
   metadata  ooxml-property creator = "Jane Doe"
   metadata  ooxml-property lastModifiedBy = "Claude"
   metadata  ooxml-property Application = "Microsoft Word"
-  1:57  detected  U+200B Zero Width Space (hidden)
+  1:57  removed  U+200B Zero Width Space (hidden)
 
 script.py
   1:7  removed  U+200B Zero Width Space (hidden)
 
-found: 7 marker(s) in 8 of 9 file(s), 9 metadata record(s), 6 fixed
+found: 7 marker(s) in 8 of 9 file(s), 9 metadata record(s), 7 fixed
