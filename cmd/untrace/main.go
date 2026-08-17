@@ -522,7 +522,7 @@ func loadConfig(explicit, target string) (*config.Config, error) {
 }
 
 // Override globs are written relative to the config file, so paths are made
-// relative to it before matching. Without a config the path is used as given.
+// relative to it before matching.
 func relativeTo(configPath, path string) string {
 	if configPath == "" {
 		return path
@@ -531,7 +531,13 @@ func relativeTo(configPath, path string) string {
 	if err != nil {
 		return path
 	}
-	rel, err := filepath.Rel(filepath.Dir(configPath), abs)
+	// On Windows a rooted path such as \repo\x carries no volume, and Rel refuses
+	// to relate it to one that does.
+	base, err := filepath.Abs(filepath.Dir(configPath))
+	if err != nil {
+		return path
+	}
+	rel, err := filepath.Rel(base, abs)
 	if err != nil {
 		return path
 	}

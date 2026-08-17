@@ -1,6 +1,9 @@
 package scan
 
-import "testing"
+import (
+	"runtime"
+	"testing"
+)
 
 var filesSink []string
 
@@ -8,7 +11,13 @@ var filesSink []string
 // than per walk.
 func TestWalkAllocationsPerFile(t *testing.T) {
 	const files = 200
-	const ceiling = 12
+
+	// Every path crossing a Windows syscall is converted to UTF-16, so its floor
+	// sits above the POSIX one.
+	ceiling := 12.0
+	if runtime.GOOS == "windows" {
+		ceiling = 20
+	}
 
 	root := flatTree(t, files)
 	mkfile(t, root, ".gitignore", "*.tmp\nbuild/\n")
@@ -20,6 +29,6 @@ func TestWalkAllocationsPerFile(t *testing.T) {
 
 	perFile := total / files
 	if perFile > ceiling {
-		t.Errorf("%.1f allocations per file, ceiling %d", perFile, ceiling)
+		t.Errorf("%.1f allocations per file, ceiling %.0f", perFile, ceiling)
 	}
 }

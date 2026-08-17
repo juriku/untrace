@@ -26,6 +26,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 )
@@ -44,7 +45,12 @@ func TestMain(m *testing.M) {
 	}
 	defer os.RemoveAll(dir)
 
+	// Windows will not execute a file without the extension, and "go build -o"
+	// with an explicit filename does not add one.
 	binary = filepath.Join(dir, "untrace")
+	if runtime.GOOS == "windows" {
+		binary += ".exe"
+	}
 
 	// These cases run the built binary as a subprocess, which ordinary coverage
 	// instrumentation cannot see. Building with -cover makes it write counters
@@ -147,7 +153,14 @@ func scrub(work, s string) string {
 	if resolved, err := filepath.EvalSymlinks(work); err == nil {
 		s = strings.ReplaceAll(s, resolved, "<scratch>")
 	}
-	return strings.ReplaceAll(s, work, "<scratch>")
+	s = strings.ReplaceAll(s, work, "<scratch>")
+
+	// Reported paths come from filepath.Join, so one golden file cannot match
+	// both separators.
+	if runtime.GOOS == "windows" {
+		s = strings.ReplaceAll(s, `\`, "/")
+	}
+	return s
 }
 
 func compare(t *testing.T, golden, got string) {

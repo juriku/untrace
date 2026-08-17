@@ -143,8 +143,8 @@ func TestRelativeTo(t *testing.T) {
 
 	cfgPath := filepath.Join("/tmp", "repo", ".untrace.json")
 	got := relativeTo(cfgPath, filepath.Join("/tmp", "repo", "src", "a.go"))
-	if got != filepath.Join("src", "a.go") {
-		t.Errorf("got %q, want src/a.go", got)
+	if want := filepath.Join("src", "a.go"); got != want {
+		t.Errorf("got %q, want %q", got, want)
 	}
 }
 
