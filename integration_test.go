@@ -207,7 +207,7 @@ func compareFiles(t *testing.T, golden, work string) {
 			return
 		}
 		os.RemoveAll(golden)
-		copyTree(t, work, golden)
+		storeTree(t, work, golden)
 		return
 	}
 	if !exists(golden) {
@@ -268,7 +268,35 @@ func exists(path string) bool {
 	return err == nil
 }
 
+// Git refuses to track any path containing .git, so a fixture that needs a
+// repository directory stores it as dot-git and it is renamed on the way in.
+const storedGitDir = "dot-git"
+
+func swapComponent(rel, from, to string) string {
+	parts := strings.Split(rel, string(filepath.Separator))
+	for i, p := range parts {
+		if p == from {
+			parts[i] = to
+		}
+	}
+	return filepath.Join(parts...)
+}
+
 func copyTree(t *testing.T, src, dst string) {
+	copyTreeMapped(t, src, dst, func(rel string) string {
+		return swapComponent(rel, storedGitDir, ".git")
+	})
+}
+
+// storeTree is the inverse, for -update writing a scratch directory back into
+// testdata where a real .git could never be committed.
+func storeTree(t *testing.T, src, dst string) {
+	copyTreeMapped(t, src, dst, func(rel string) string {
+		return swapComponent(rel, ".git", storedGitDir)
+	})
+}
+
+func copyTreeMapped(t *testing.T, src, dst string, mapRel func(string) string) {
 	t.Helper()
 	err := filepath.Walk(src, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
@@ -278,6 +306,7 @@ func copyTree(t *testing.T, src, dst string) {
 		if err != nil {
 			return err
 		}
+		rel = mapRel(rel)
 		target := filepath.Join(dst, rel)
 		if info.IsDir() {
 			return os.MkdirAll(target, 0o755)
