@@ -199,8 +199,9 @@ characters those editors insert by themselves: you type `--` and Word makes it
 an em dash, so its presence says nothing about who wrote the document. **Log
 files** are ignored outright. Everything else is treated the same way.
 
-What stays flagged everywhere is the direction **override** U+202E, which is the
-Trojan Source vector and never legitimate.
+No context excuses the direction **override** U+202E, the Trojan Source vector.
+It is never treated as doing a legitimate job, so only a format that ignores
+everything, such as a log file, passes over it.
 
 Run `--json` to see the format and encoding it picked per file, or `--strict` to
 switch the judgement off and see every marker. `docs/design/resolvers.md`
