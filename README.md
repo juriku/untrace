@@ -1,56 +1,136 @@
 # untrace
 
-Detect and remove the invisible characters and metadata used to mark text as
-AI-generated.
+Text copied out of an AI chatbot carries marks you cannot see. untrace finds
+them and takes them out.
 
 A single static binary, no dependencies.
 
-## What makes it different
-
-A character is not intrinsically a watermark. untrace resolves what a file *is*
-before deciding what its characters *mean*:
-
-| character | in a Word document | in a log file | everywhere else |
-|---|---|---|---|
-| em dash | ignored | ignored | normalised to `-` |
-| curly quotes | ignored | ignored | normalised to `"` |
-| non-breaking space | ignored | ignored | normalised to a space |
-| zero-width space | removed | ignored | removed |
-
-Two formats deviate and no others. **Word and other Office documents** ignore
-the twelve characters those editors insert by themselves: you type `--` and Word
-makes it an em dash, so its presence says nothing about who wrote the document.
-**Log files** are ignored outright. Everything else is treated the same way.
-
-Emoji are left alone. A zero-width joiner inside `👨‍👩‍👧` is the sequence working
-as designed, as is a joiner in Persian or Devanagari and a variation selector on
-a CJK ideograph. The same joiner between two Latin letters is reported.
-
-Other writing systems are left alone too. `。` and `？` are Japanese punctuation,
-`،` is an Arabic comma, and a terminated bidi isolate around right-to-left text
-is doing its job, so none of them are rewritten. No letter outside Latin is ever
-replaced by default. What stays flagged everywhere is the bidi **override**
-U+202E, which is the Trojan Source vector and never legitimate.
-
-Run with `--json` to see the format and encoding resolved per file, or
-`--strict` to switch all of that off and see every marker.
-
-## Install
+## Start here
 
 ```
 brew install juriku/tap/untrace
 go install github.com/juriku/untrace/cmd/untrace@latest
 ```
 
+Point it at a file to see what is in there. Nothing is changed yet:
+
+```
+$ untrace pasted.txt
+
+pasted.txt
+  1:5   detected  U+2019 Right Single Quotation Mark (typographic)
+  1:33  detected  U+2014 Em Dash (typographic)
+  3:9   detected  U+00A0 Non-Breaking Space (hidden)
+  3:22  detected  U+201C Left Double Quotation Mark (typographic)
+  3:30  detected  U+201D Right Double Quotation Mark (typographic)
+
+found: 5 marker(s) in 1 of 1 file(s)
+```
+
+Add `--fix` when you want them gone:
+
+```
+$ untrace --fix pasted.txt
+
+pasted.txt
+  1:33  replaced  U+2014 Em Dash -> "-" (typographic)
+  3:9   replaced  U+00A0 Non-Breaking Space -> " " (hidden)
+  ...
+found: 5 marker(s) in 1 of 1 file(s), 5 fixed
+```
+
+`untrace .` checks a whole folder and `untrace --fix .` cleans it.
+
+## What it removes
+
+| | |
+|---|---|
+| **Invisible characters** | Zero-width spaces and joiners, odd spaces, soft hyphens, direction controls, stray byte-order marks. You cannot see them, and they survive copy and paste. |
+| **Hidden payloads** | Some invisible characters carry a message. untrace decodes it, so you see `tracked-by:acct-99213` instead of "21 invisible characters". |
+| **Giveaway punctuation** | Curly quotes, em and en dashes and the rest, normalised back to plain ASCII. |
+| **Lookalike letters** | A Cyrillic `а` sitting inside an otherwise Latin word, as in `pаypal`. Reported rather than silently rewritten. |
+| **"Made by" metadata** | C2PA Content Credentials, EXIF, XMP, and the properties inside PDFs and Office files. A file is flagged `[ai-generated: likely]` only when a generator is actually named. |
+
+## What it does not do
+
+**It never changes your words.** untrace removes and normalises individual
+characters, and removes metadata records. It does not rewrite sentences, reword
+anything or paraphrase. Whatever lives in the words themselves it leaves exactly
+as you wrote it.
+
+**It does not rewrite documents or PDFs.** Taking a record out of a PDF means
+rebuilding its cross-reference table, and out of an Office file means repacking
+the archive, either of which can corrupt the file. Those are reported instead.
+Images are the exception, behind `--strip-metadata`.
+
+**It reads signed credentials, it does not verify them.** A C2PA manifest naming
+a generator is evidence that tool appears in the file's history, not proof the
+credential is genuine.
+
+## Common tasks
+
+**I pasted something from a chatbot.**
+
+```
+untrace --fix notes.md
+```
+
+**I want to check a project before committing.**
+
+```
+untrace --fail .
+```
+
+Exits non-zero if anything worth acting on is found, so CI can use it.
+
+**I want to know what a file is hiding, without changing it.**
+
+```
+untrace --json report.docx
+```
+
+**I have an image.**
+
+```
+untrace --fix --strip-metadata photo.png       # remove records naming a generator
+untrace --fix --strip-metadata=all photo.png   # remove every record
+```
+
+**I want this to happen automatically.** See [In VS Code](#in-vs-code),
+[In CI or a pre-commit hook](#in-ci-or-a-pre-commit-hook) and
+[As a git clean filter](#as-a-git-clean-filter).
+
+## Things that surprise people
+
+**The ellipsis, the bullet and the middle dot are left alone.** They are
+ordinary punctuation in prose, lists and slides, and the middle dot is a letter
+in Catalan `l·l`. Flagging them is noise everywhere and signal nowhere.
+
+**Emoji are left alone.** The joiner inside a family emoji is the emoji working
+as designed. The same joiner between two Latin letters is reported.
+
+**Other writing systems are left alone.** Japanese and Arabic punctuation are
+not wrong versions of ASCII, so they are never rewritten. No letter outside
+Latin is replaced by default.
+
+**Lookalike letters are reported, not fixed.** Turning `а` into `a` is a guess
+about what the author meant, and in a genuinely Cyrillic word the guess corrupts
+it. Pass `--fix-homoglyphs` if you want it done anyway.
+
+**Your prose is treated like source code by default.** An em dash in a `.md`
+file is normalised. If your writing uses them on purpose, see
+[Configuration](#configuration); that is the one setting most projects change.
+
+## Install
+
 Binaries for macOS, Linux and Windows on amd64 and arm64 are attached to each
 [release](https://github.com/juriku/untrace/releases).
 
 ### In VS Code
 
-[`editors/vscode`](editors/vscode) reports findings as diagnostics while you
-edit, including in a buffer you have not saved. It shells out to the binary
-above, so install that first and make sure it is on `PATH` or point
-`untrace.path` at it.
+[`editors/vscode`](editors/vscode) reports findings as you edit, including in a
+buffer you have not saved. It shells out to the binary, so install that first
+and make sure it is on `PATH` or point `untrace.path` at it.
 
 | setting | default | meaning |
 |---|---|---|
@@ -86,6 +166,31 @@ driver definition lives in git config and cannot be committed, so every clone
 needs it installed again, and your working tree will then differ from the index,
 which surprises people. `untrace install-filter --remove` undoes it. A
 pre-commit hook is the less surprising choice for most projects.
+
+## How it decides
+
+A character is not a watermark by itself. The same one can be perfectly normal
+in one file and a problem in another, so untrace works out what a file *is*
+before deciding what its characters *mean*:
+
+| character | in a Word document | in a log file | everywhere else |
+|---|---|---|---|
+| em dash | ignored | ignored | normalised to `-` |
+| curly quotes | ignored | ignored | normalised to `"` |
+| non-breaking space | ignored | ignored | normalised to a space |
+| zero-width space | removed | ignored | removed |
+
+Only two formats deviate. **Word and other Office documents** ignore the twelve
+characters those editors insert by themselves: you type `--` and Word makes it
+an em dash, so its presence says nothing about who wrote the document. **Log
+files** are ignored outright. Everything else is treated the same way.
+
+What stays flagged everywhere is the direction **override** U+202E, which is the
+Trojan Source vector and never legitimate.
+
+Run `--json` to see the format and encoding it picked per file, or `--strict` to
+switch the judgement off and see every marker. `docs/design/resolvers.md`
+explains the whole scheme.
 
 ## Usage
 
@@ -133,26 +238,13 @@ path would get.
 --config PATH          use this config file instead of discovering one
 ```
 
-## What it detects
+## Detail
 
 - **Invisible characters**: zero-width space, joiner and non-joiner, word joiner,
   BOM, soft hyphen, bidi controls and isolates, invisible maths operators,
   non-standard spaces, variation selectors, ideographic variation selectors.
-- **Typographic markers**: smart quotes, em and en dashes, and other characters
-  that survive a copy out of a word processor. The ellipsis, the bullet and the
-  middle dot are deliberately never reported, in any format: they are ordinary
-  punctuation in prose, lists and slides, so flagging them is noise everywhere
-  and signal nowhere. The middle dot is also a letter in Catalan `l·l`.
-- **Homoglyphs**: Cyrillic and Greek letters that imitate Latin ones. These are
-  reported but never rewritten unless you pass `--fix-homoglyphs`. Replacing
-  `а` with `a` is a guess about which script the author meant, and in a word
-  that is genuinely Cyrillic or Greek the guess corrupts it. `раypal` is worth
-  telling you about; silently Latinising it is a different decision, and yours
-  to make.
 - **Hidden payloads**: runs of tag characters, variation selectors or zero-width
-  characters that encode data. untrace decodes them and reports what they spell,
-  which is the difference between "40 invisible characters" and
-  `tracked-by:acct-99213`.
+  characters that encode data, decoded and printed.
 - **Image provenance metadata**: C2PA Content Credentials, EXIF `Software`, XMP
   `CreatorTool`, PNG text chunks and JPEG comments, in PNG and JPEG.
 - **Document metadata and body text**: `.docx`, `.xlsx`, `.pptx` and `.odt`
@@ -177,7 +269,10 @@ directory does not destroy the authenticity credentials on your photographs.
 That applies to signed credentials too. A manifest records the tool that made
 the claim, so a manifest naming a generator is removed by the default and marks
 the file `[ai-generated: likely]` on its own, while one that names none, as a
-camera's does, survives until you pass `=all`.
+camera's does, survives until you pass `=all`. untrace finds that name as text:
+the claim generator is a CBOR string and C2PA forbids splitting it, so no JUMBF
+or CBOR parsing is needed to read one. A name mentioned anywhere in the manifest
+counts, including in an ingredient from an earlier edit.
 
 Encodings are preserved. A latin-1 file stays latin-1, a UTF-16 file stays
 UTF-16 with its BOM, and a file that cannot be decoded cleanly is skipped rather
@@ -201,40 +296,6 @@ projects.
 Symlinks are never followed, so a symlinked file is neither scanned nor fixed.
 That keeps a scan inside the tree you pointed it at and stops `--fix` writing
 through a link to somewhere else.
-
-## What it cannot detect
-
-Being clear about this matters, because other tools are not.
-
-**Statistical token watermarks, including the one Claude now uses.** Every Claude
-model released on or after 2 August 2026 carries a SynthID-Text watermark. It
-works by biasing the model's choice among near-equivalent next words, so the
-signal lives in *which words were chosen*, spread across a whole passage. No
-characters are added and no metadata is added. There is nothing in the file for
-untrace to find or strip. Detecting it requires the cryptographic key and a
-statistical test; Anthropic ships its own detection API. The only way to remove
-it is to rewrite the text.
-
-Any tool that claims to strip a statistical text watermark is making a claim you
-cannot verify, because the scheme is unpublished.
-
-**Pixel and audio watermarks.** SynthID for images and audio lives in the pixel
-and waveform data. Removing metadata does nothing to it.
-
-**Documents and images are reported, never rewritten.** Removing a record from a
-PDF means rebuilding its cross-reference table and from an Office file means
-repacking the archive, both of which can corrupt the file. Images can be
-rewritten, but only behind `--strip-metadata`. Plain text is the only thing
-`--fix` touches on its own.
-
-**C2PA manifests are read, not parsed or verified.** untrace reports that a
-signed credential is present, how large it is, and the generator named inside
-it. It finds that name as text: the claim generator is a CBOR string and C2PA
-forbids splitting it, so no JUMBF or CBOR parsing is needed to read one. It does
-not verify the signature, read the assertions, or check the chain, so a manifest
-naming a generator is evidence that tool appears in the file's provenance, not
-proof the credential is authentic. A name mentioned anywhere in the manifest
-counts, including in an ingredient from an earlier edit.
 
 ## Configuration
 
@@ -266,33 +327,19 @@ Loosening `prose` is the one most projects need. Prose is cleaned as strictly as
 source by default, so a repository whose documentation contains deliberate em
 dashes will fail `--fail` until you set it to `report` or `ignore`. Fenced code
 blocks stay strict even then, because a command someone will paste into a
-terminal is not prose:
-
-````markdown
-Prose with an — em dash, which is deliberate.     <- left alone
-
-```bash
-curl —silent https://example.com                  <- still fixed to -silent
-```
-````
+terminal is not prose.
 
 `overrides` scope settings to paths using gitignore glob syntax, resolved
 relative to the config file, with later entries winning. untrace uses one on
-itself so its own documentation can contain homoglyph examples without failing
-its own scan.
+itself so its own documentation can contain lookalike-letter examples without
+failing its own scan.
 
 ### Ignoring a single line
 
 Sometimes a marker is there on purpose: a test fixture that needs a zero-width
-space, or documentation showing what a homoglyph attack looks like. Add a
+space, or documentation showing what a lookalike-letter attack looks like. Add a
 comment and untrace skips it, the same way `# noqa` or `// eslint-disable-line`
 work.
-
-```python
-sample = "zero​width"   # untrace:ignore
-```
-
-Three forms:
 
 | comment | skips |
 |---|---|
@@ -333,7 +380,7 @@ as described under [Configuration](#configuration); that is the step that makes
 
 ## Design
 
-- `docs/design/resolvers.md` — how context decides what a character means
-- `docs/design/watermark-techniques.md` — the watermarking landscape and what is
-  reachable
-- `docs/design/performance.md` — the allocation invariants a scan has to hold
+- `docs/design/resolvers.md` for how context decides what a character means
+- `docs/design/watermark-techniques.md` for the watermarking landscape and what
+  is reachable
+- `docs/design/performance.md` for the allocation invariants a scan has to hold
