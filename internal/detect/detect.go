@@ -259,7 +259,7 @@ func (d *Detector) Run(text string) Result {
 
 		replacement := m.Replacement
 		if f.Actionable && d.Rewrite != nil && replacement != "" {
-			safe, ok := d.Rewrite(replacement)
+			safe, ok := d.Rewrite(replacement, i)
 			if !ok {
 				f.Actionable = false
 			}

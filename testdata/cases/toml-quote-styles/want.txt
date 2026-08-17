@@ -1,0 +1,19 @@
+
+config.toml
+  1:18  replaced  U+201C Left Double Quotation Mark -> "\\\"" (typographic)
+  1:21  replaced  U+201D Right Double Quotation Mark -> "\\\"" (typographic)
+  1:23  replaced  U+2014 Em Dash -> "-" (typographic)
+  2:20  replaced  U+201C Left Double Quotation Mark -> "\"" (typographic)
+  2:23  replaced  U+201D Right Double Quotation Mark -> "\"" (typographic)
+  2:25  replaced  U+2014 Em Dash -> "-" (typographic)
+  3:26  replaced  U+201C Left Double Quotation Mark -> "\\\"" (typographic)
+  3:29  replaced  U+201D Right Double Quotation Mark -> "\\\"" (typographic)
+  3:31  replaced  U+2014 Em Dash -> "-" (typographic)
+  4:28  replaced  U+201C Left Double Quotation Mark -> "\"" (typographic)
+  4:31  replaced  U+201D Right Double Quotation Mark -> "\"" (typographic)
+  4:33  replaced  U+2014 Em Dash -> "-" (typographic)
+  5:25  replaced  U+201C Left Double Quotation Mark -> "\"" (typographic)
+  5:28  replaced  U+201D Right Double Quotation Mark -> "\"" (typographic)
+  5:30  replaced  U+2014 Em Dash -> "-" (typographic)
+
+found: 15 marker(s) in 1 of 1 file(s), 15 fixed

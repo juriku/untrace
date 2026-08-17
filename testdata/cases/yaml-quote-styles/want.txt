@@ -1,0 +1,19 @@
+
+settings.yaml
+  1:18  replaced  U+201C Left Double Quotation Mark -> "\\\"" (typographic)
+  1:21  replaced  U+201D Right Double Quotation Mark -> "\\\"" (typographic)
+  1:23  replaced  U+2014 Em Dash -> "-" (typographic)
+  2:18  replaced  U+201C Left Double Quotation Mark -> "\"" (typographic)
+  2:21  replaced  U+201D Right Double Quotation Mark -> "\"" (typographic)
+  2:23  replaced  U+2014 Em Dash -> "-" (typographic)
+  3:16  detected  U+201C Left Double Quotation Mark (typographic)
+  3:19  detected  U+201D Right Double Quotation Mark (typographic)
+  3:21  replaced  U+2014 Em Dash -> "-" (typographic)
+  5:11  replaced  U+201C Left Double Quotation Mark -> "\"" (typographic)
+  5:14  replaced  U+201D Right Double Quotation Mark -> "\"" (typographic)
+  5:16  replaced  U+2014 Em Dash -> "-" (typographic)
+  6:22  replaced  U+201C Left Double Quotation Mark -> "\"" (typographic)
+  6:25  replaced  U+201D Right Double Quotation Mark -> "\"" (typographic)
+  6:27  replaced  U+2014 Em Dash -> "-" (typographic)
+
+found: 15 marker(s) in 1 of 1 file(s), 13 fixed

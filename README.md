@@ -90,12 +90,16 @@ the file clean. Body text inside a PDF is not read at all, so a hidden character
 in a PDF's text is neither found nor removed.
 
 **It will not break a file to fix it.** A curly quote normalises to a straight
-one, which is a string delimiter in some formats. In JSON, JSONC and notebooks
-the replacement is escaped, so the file stays valid and the text still reads
-`"like this"`. In YAML, TOML and INI the correct escape depends on which quoting
-style encloses the character, which cannot be known without parsing the file, so
-curly quotes there are reported and left alone. Every other marker in those
-files is still fixed.
+one, which is a string delimiter in some formats, so the replacement is written
+the way the surrounding syntax requires. In JSON, JSONC and notebooks it is
+escaped. In TOML and YAML it is escaped inside a `"quoted"` string and written
+plainly inside a `'literal'` one, a block scalar or a comment, where a quote is
+ordinary content. The file stays valid and the text still reads `"like this"`.
+
+Two cases are reported rather than fixed, because no replacement is safe: a
+plain unquoted YAML scalar, where writing a quote would change the value rather
+than a character, and `.ini`, `.cfg` and `.conf`, which have no single grammar.
+Every other marker in those files is still fixed.
 
 **It reads signed credentials, it does not verify them.** A C2PA manifest naming
 a generator is evidence that tool appears in the file's history, not proof the

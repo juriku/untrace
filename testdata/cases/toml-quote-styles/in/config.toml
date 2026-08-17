@@ -1,0 +1,5 @@
+basic = "he said “hi” — ok"
+literal = 'he said “hi” — ok'
+multi_basic = """he said “hi” — ok"""
+multi_literal = '''he said “hi” — ok'''
+commented = 1 # he said “hi” — ok

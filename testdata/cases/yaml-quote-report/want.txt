@@ -1,8 +1,0 @@
-
-settings.yaml
-  1:17  detected  U+201C Left Double Quotation Mark (typographic)
-  1:20  detected  U+201D Right Double Quotation Mark (typographic)
-  1:22  replaced  U+2014 Em Dash -> "-" (typographic)
-  2:9  replaced  U+2014 Em Dash -> "-" (typographic)
-
-found: 4 marker(s) in 1 of 1 file(s), 2 fixed

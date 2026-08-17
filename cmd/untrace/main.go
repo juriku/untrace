@@ -135,7 +135,7 @@ func (o options) detector(path string, mo markers.Options, format resolve.Format
 		MixedScript:   mixedAction(resolved),
 		FixHomoglyphs: o.fixHomoglyphs,
 		Regions:       resolve.RegionsFor(format, text),
-		Rewrite:       resolve.RewriterFor(path),
+		Rewrite:       resolve.RewriterFor(path, text),
 	}
 }
 

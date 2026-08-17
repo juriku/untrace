@@ -1,0 +1,6 @@
+double: "he said \"hi\" - ok"
+single: 'he said "hi" - ok'
+plain: he said “hi” - ok
+block: |
+  he said "hi" - ok
+comment: 1 # he said "hi" - ok
