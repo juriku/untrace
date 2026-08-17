@@ -65,15 +65,6 @@ homebrew_casks:
               args: ["-dr", "com.apple.quarantine", "#{staged_path}/untrace"]
           end
 
-scoops:
-  - repository:
-      owner: juriku
-      name: scoop-bucket
-      token: "{{ .Env.SCOOP_BUCKET_TOKEN }}"
-    homepage: "https://github.com/juriku/untrace"
-    description: "Detect and remove invisible characters and metadata that mark text as AI-generated"
-    license: MIT
-
 release:
   draft: false
   prerelease: auto
