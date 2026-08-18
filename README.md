@@ -193,7 +193,7 @@ Settings, commands and fix-on-save are in
 ```yaml
 repos:
   - repo: https://github.com/juriku/untrace
-    rev: v0.1.0
+    rev: v0.2.0
     hooks:
       - id: untrace          # fail on anything actionable
       # - id: untrace-fix    # or rewrite files in place
@@ -211,7 +211,7 @@ permissions:
 
 steps:
   - uses: actions/checkout@v7
-  - uses: juriku/untrace@v0.2.0    # not yet released, see below
+  - uses: juriku/untrace@v0.2.0
     with:
       sarif-file: untrace.sarif
       fail: false            # upload first, then decide
@@ -220,9 +220,7 @@ steps:
       sarif_file: untrace.sarif
 ```
 
-**The action needs a release that does not exist yet.** `v0.1.0` is the newest
-tag and it predates both `action.yml` and `--sarif`, so pinning it fails with
-"Can't find 'action.yml'". Until a release ships, build from source:
+To run an unreleased revision instead, build from source:
 
 ```yaml
   - uses: actions/setup-go@v7
