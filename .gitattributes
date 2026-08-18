@@ -1,0 +1,17 @@
+# Golden files are compared as exact text, so a CRLF checkout makes every one
+# of them differ from what the binary writes.
+* text=auto eol=lf
+
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.webp binary
+*.tiff binary
+*.pdf binary
+*.docx binary
+*.xlsx binary
+*.pptx binary
+*.odt binary
+*.epub binary
+*.vsix binary

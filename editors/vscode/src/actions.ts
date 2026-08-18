@@ -36,7 +36,7 @@ export class Fixes implements vscode.CodeActionProvider {
 		context: vscode.CodeActionContext,
 		token: vscode.CancellationToken,
 	): Promise<vscode.CodeAction[]> {
-		let found = this.problems.current(document) ?? (await this.problems.refresh(document)) ?? [];
+		let found = await this.findings(document, token);
 		if (token.isCancellationRequested) {
 			return [];
 		}

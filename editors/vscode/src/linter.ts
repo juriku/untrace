@@ -19,6 +19,11 @@ type Outcome =
 	| { state: "stale" }
 	| { state: "stopped" };
 
+interface SharedCheck {
+	version: number;
+	work: Promise<Problem[] | undefined>;
+}
+
 export interface Trouble {
 	kind: "missing" | "timeout" | "failed";
 	detail: string;
@@ -29,6 +34,7 @@ export class Linter implements vscode.Disposable {
 	private readonly checked = new Map<string, Checked>();
 	private readonly pending = new Map<string, NodeJS.Timeout>();
 	private readonly running = new Map<string, AbortController>();
+	private readonly shared = new Map<string, SharedCheck>();
 	private readonly trouble = new vscode.EventEmitter<Trouble>();
 
 	readonly onTrouble = this.trouble.event;
@@ -97,8 +103,23 @@ export class Linter implements vscode.Disposable {
 		);
 	}
 
-	private async analyse(document: vscode.TextDocument): Promise<Problem[] | undefined> {
+	private analyse(document: vscode.TextDocument): Promise<Problem[] | undefined> {
 		const key = document.uri.toString();
+		const alreadyRunning = this.shared.get(key);
+		if (alreadyRunning?.version === document.version) {
+			return alreadyRunning.work;
+		}
+
+		const work = this.run(document, key).finally(() => {
+			if (this.shared.get(key)?.work === work) {
+				this.shared.delete(key);
+			}
+		});
+		this.shared.set(key, { version: document.version, work });
+		return work;
+	}
+
+	private async run(document: vscode.TextDocument, key: string): Promise<Problem[] | undefined> {
 		this.cancel(key);
 		if (document.uri.scheme !== "file") {
 			return undefined;
@@ -227,6 +248,7 @@ export class Linter implements vscode.Disposable {
 		}
 		this.pending.clear();
 		this.running.clear();
+		this.shared.clear();
 		this.checked.clear();
 		this.collection.dispose();
 		this.trouble.dispose();

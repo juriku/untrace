@@ -26,6 +26,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"runtime"
 	"strings"
 	"testing"
@@ -156,12 +157,15 @@ func scrub(work, s string) string {
 	s = strings.ReplaceAll(s, work, "<scratch>")
 
 	// Reported paths come from filepath.Join, so one golden file cannot match
-	// both separators.
+	// both separators. Only a separator is rewritten: a blanket replace turns
+	// the escaped quote in JSON output into /".
 	if runtime.GOOS == "windows" {
-		s = strings.ReplaceAll(s, `\`, "/")
+		s = pathSeparator.ReplaceAllString(s, "/$1")
 	}
 	return s
 }
+
+var pathSeparator = regexp.MustCompile(`\\([A-Za-z0-9._-])`)
 
 func compare(t *testing.T, golden, got string) {
 	t.Helper()
