@@ -37,6 +37,21 @@ suite("robustness", () => {
 		assert.deepEqual(found?.range, new vscode.Range(0, 4, 0, 5));
 	});
 
+	test("concurrent checks of one version share a run instead of aborting each other", async () => {
+		await reset();
+		const document = await open("concurrent.txt", `a${zwsp}b\n`);
+
+		const results = await Promise.all(
+			Array.from({ length: 8 }, () => recheck(document).then(() => diagnostics(document).length)),
+		);
+
+		assert.deepEqual(
+			results,
+			Array.from({ length: 8 }, () => 1),
+			"an aborted check returns nothing, and the caller awaiting it is left with no fix",
+		);
+	});
+
 	test("untrace.enable false clears everything and stops checking", async () => {
 		await reset();
 		const document = await open("switch.txt", `a${zwsp}b\n`);
