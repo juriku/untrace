@@ -84,7 +84,45 @@ func (d *Dir) Chmod(rel string, mode os.FileMode) *Dir {
 		d.t.Fatal(err)
 	}
 	d.t.Cleanup(func() { os.Chmod(full, info.Mode()) })
+
+	if got, err := os.Stat(full); err != nil {
+		d.t.Fatal(err)
+	} else if got.Mode().Perm() != mode.Perm() {
+		d.t.Skipf("chmod %04o on %s left mode %04o", mode.Perm(), rel, got.Mode().Perm())
+	}
+	if !denies(full, mode, info.IsDir()) {
+		d.t.Skipf("mode %04o on %s denies nothing here", mode.Perm(), rel)
+	}
 	return d
+}
+
+// Windows honours only the 0200 bit and ignores read-only directories entirely
+// (golang/go#35042), FAT carries no permission bits, and root bypasses them
+// everywhere. In all three a permission test asserts on a premise that never
+// held, so the mode is checked for effect rather than for having been set.
+func denies(full string, mode os.FileMode, isDir bool) bool {
+	if isDir {
+		if mode&0o200 != 0 {
+			return true
+		}
+		probe := filepath.Join(full, ".untrace-probe")
+		f, err := os.Create(probe)
+		if err != nil {
+			return true
+		}
+		f.Close()
+		os.Remove(probe)
+		return false
+	}
+	if mode&0o400 != 0 {
+		return true
+	}
+	f, err := os.Open(full)
+	if err != nil {
+		return true
+	}
+	f.Close()
+	return false
 }
 
 func (d *Dir) Read(rel string) string {
