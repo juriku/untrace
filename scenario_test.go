@@ -88,10 +88,6 @@ func TestSymlinkLoopTerminates(t *testing.T) {
 // A file the process cannot read is an error, not a silent skip: reporting a
 // tree clean because part of it was unreadable is the worst possible answer.
 func TestUnreadableFileIsReportedNotSkipped(t *testing.T) {
-	if os.Geteuid() == 0 {
-		t.Skip("root reads anything")
-	}
-
 	d := NewDir(t).
 		File("ok.md", "clean\n").
 		File("locked.md", "a dash "+emDash+" here\n").
@@ -103,16 +99,16 @@ func TestUnreadableFileIsReportedNotSkipped(t *testing.T) {
 	}
 }
 
-// A 0444 file is still rewritten, because the atomic rename needs permission on
-// the directory rather than on the file. What must survive is the mode.
-func TestReadOnlyFileKeepsItsMode(t *testing.T) {
-	if os.Geteuid() == 0 {
-		t.Skip("root writes anything")
-	}
+// On POSIX the atomic rename needs permission on the directory rather than on
+// the file, so a 0444 file is rewritten; on Windows 0444 is
+// FILE_ATTRIBUTE_READONLY and the rename is refused. Either outcome is
+// acceptable, and the mode survives both. What must never happen is a partial
+// write reported as success.
+func TestReadOnlyFileIsNeverLeftDamaged(t *testing.T) {
+	body := "a dash " + emDash + " here\n"
+	d := NewDir(t).File("locked.md", body).Chmod("locked.md", 0o444)
 
-	d := NewDir(t).File("locked.md", "a dash "+emDash+" here\n").Chmod("locked.md", 0o444)
-
-	d.Run("--fix", "locked.md").Exit(0)
+	r := d.Run("--fix", "locked.md")
 
 	info, err := os.Stat(d.Path("locked.md"))
 	if err != nil {
@@ -121,17 +117,19 @@ func TestReadOnlyFileKeepsItsMode(t *testing.T) {
 	if got := info.Mode().Perm(); got != 0o444 {
 		t.Errorf("mode = %o, want 444", got)
 	}
-	if strings.Contains(d.Read("locked.md"), emDash) {
-		t.Error("the file was not fixed")
+
+	switch got := d.Read("locked.md"); {
+	case r.exit == 0 && strings.Contains(got, emDash):
+		t.Error("reported success without fixing the file")
+	case r.exit != 0 && got != body:
+		t.Errorf("the fix failed but the file became %q", got)
+	case r.exit != 0:
+		r.StdoutHas("locked.md")
 	}
 }
 
 // A read-only directory blocks the atomic rename, not the read.
 func TestReadOnlyDirectoryDoesNotTruncate(t *testing.T) {
-	if os.Geteuid() == 0 {
-		t.Skip("root writes anything")
-	}
-
 	body := "a dash " + emDash + " here\n"
 	d := NewDir(t).File("sub/locked.md", body).Chmod("sub", 0o555)
 
