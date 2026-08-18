@@ -1,88 +1,55 @@
-import assert from "node:assert/strict";
-import { execFileSync } from "node:child_process";
-import { mkdtempSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
-import { join, resolve } from "node:path";
-
+import * as assert from "node:assert/strict";
 import * as vscode from "vscode";
 
-const tag = (ascii: string) =>
-  [...ascii].map((c) => String.fromCodePoint(0xe0000 + c.charCodeAt(0))).join("");
+import { cyrillicEr, diagnostics, discard, open, tagH, tagI, zwsp } from "./harness";
 
-const emDash = String.fromCodePoint(0x2014);
+suite("diagnostics", () => {
+	suiteTeardown(discard);
 
-// "tracked" is 7 tag characters: 7 runes, but 14 UTF-16 code units. Everything
-// after them on the line is where a rune offset and a VS Code column diverge.
-const line = `const id = "${tag("tracked")}" ${emDash} 1;`;
+	test("reports an invisible character with the name and what untrace will do", async () => {
+		const document = await open("sample.txt", `hi${zwsp}there\n`);
+		const [found] = diagnostics(document);
 
-const repoRoot = resolve(__dirname, "..", "..", "..", "..");
+		assert.ok(found, "expected one diagnostic");
+		assert.equal(found.severity, vscode.DiagnosticSeverity.Warning);
+		assert.equal(found.code, "U+200B");
+		assert.equal(found.message, "Zero Width Space (U+200B). untrace removes this character.");
+		assert.deepEqual(found.range, new vscode.Range(0, 2, 0, 3));
+	});
 
-function buildBinary(): string {
-  const dir = mkdtempSync(join(tmpdir(), "untrace-bin-"));
-  const bin = join(dir, process.platform === "win32" ? "untrace.exe" : "untrace");
-  execFileSync("go", ["build", "-o", bin, "./cmd/untrace"], { cwd: repoRoot });
-  return bin;
-}
+	test("reports a hidden payload once, with the decoded text, not once per character", async () => {
+		const document = await open("payload.txt", `x = 1 ${tagH}${tagI}\n`);
+		const found = diagnostics(document);
 
-function writeFixture(): vscode.Uri {
-  const dir = mkdtempSync(join(tmpdir(), "untrace-fixture-"));
-  const file = join(dir, "probe.ts");
-  writeFileSync(file, `${line}\n`, "utf8");
-  return vscode.Uri.file(file);
-}
+		assert.equal(found.length, 1, "one diagnostic for the whole run");
+		assert.equal(
+			found[0]?.message,
+			'Hidden message: "hi". Encoded in 2 invisible characters as tag-ascii.',
+		);
+		assert.deepEqual(found[0]?.range, new vscode.Range(0, 6, 0, 10));
+	});
 
-// lint() is fire and forget, so opening a document returns before any
-// diagnostic exists.
-async function waitForDiagnostics(uri: vscode.Uri): Promise<vscode.Diagnostic[]> {
-  const deadline = Date.now() + 30000;
-  while (Date.now() < deadline) {
-    const found = vscode.languages.getDiagnostics(uri);
-    if (found.length > 0) {
-      return found;
-    }
-    await new Promise((r) => setTimeout(r, 100));
-  }
-  assert.fail(`no diagnostics for ${uri.fsPath} within 30s`);
-}
+	test("reports a confusable letter as information, not a warning", async () => {
+		const document = await open("confusable.ts", `let ${cyrillicEr}assword = 1;\n`);
+		const found = diagnostics(document);
 
-suite("diagnostics in a real editor", () => {
-  let diags: vscode.Diagnostic[];
+		const letter = found.find((d) => d.code === "U+0440");
+		assert.ok(letter, "expected the Cyrillic letter to be reported");
+		assert.equal(letter.severity, vscode.DiagnosticSeverity.Information);
+		assert.match(letter.message, /untrace reports this and does not change it\./);
 
-  suiteSetup(async () => {
-    await vscode.workspace
-      .getConfiguration("untrace")
-      .update("path", buildBinary(), vscode.ConfigurationTarget.Global);
+		const mixed = found.find((d) => d.code === "mixed-script");
+		assert.ok(mixed, "expected the mixed-script word to be reported");
+		assert.equal(mixed.severity, vscode.DiagnosticSeverity.Warning);
+	});
 
-    const uri = writeFixture();
-    await vscode.workspace.openTextDocument(uri);
-    diags = await waitForDiagnostics(uri);
-  });
+	test("reports nothing for a clean file", async () => {
+		const document = await open("clean.txt", "nothing to see here\n");
+		assert.deepEqual(diagnostics(document), []);
+	});
 
-  test("the payload is one diagnostic, not one per carrier character", () => {
-    const payloads = diags.filter((d) => d.message.startsWith("Hidden payload"));
-    assert.equal(payloads.length, 1);
-    assert.match(payloads[0]!.message, /tracked/);
-  });
-
-  test("a marker after an astral run lands on the right column", () => {
-    const dash = diags.find((d) => d.message.includes("Em Dash"));
-    assert.ok(dash, `no em dash diagnostic in ${diags.map((d) => d.message).join(", ")}`);
-
-    // untrace reports rune column 22. The seven tag characters ahead of it are
-    // fourteen UTF-16 units, so the editor column is 28. Reading the rune
-    // column straight through would put it at 21, on top of the payload.
-    assert.equal(dash.range.start.character, 28);
-    assert.equal(dash.range.start.line, 0);
-  });
-
-  test("the range covers exactly the em dash", () => {
-    const dash = diags.find((d) => d.message.includes("Em Dash"))!;
-    assert.equal(dash.range.end.character - dash.range.start.character, 1);
-  });
-
-  test("every diagnostic is attributed to untrace", () => {
-    for (const d of diags) {
-      assert.equal(d.source, "untrace");
-    }
-  });
+	test("leaves a joiner alone inside an emoji sequence", async () => {
+		const document = await open("emoji.txt", "family \u{1F468}\u{200D}\u{1F469} ok\n");
+		assert.deepEqual(diagnostics(document), []);
+	});
 });

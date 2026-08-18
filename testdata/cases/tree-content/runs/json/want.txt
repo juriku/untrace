@@ -199,15 +199,7 @@
           "label": "Application",
           "value": "Microsoft Word"
         }
-      ],
-      "provenance": [
-        {
-          "source": "ooxml-property lastModifiedBy",
-          "detail": "claude",
-          "ai": true
-        }
-      ],
-      "confidence": "likely"
+      ]
     },
     {
       "path": "script.py",

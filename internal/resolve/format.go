@@ -92,6 +92,10 @@ func (p Policy) Override(hidden, typographic, ivs *Action) Policy {
 	return p
 }
 
+// TypographyConfigured reports whether the typographic action came from config
+// rather than from the format default.
+func (p Policy) TypographyConfigured() bool { return p.configured.typographic != nil }
+
 func (p Policy) For(m markers.Marker) Action {
 	if a, ok := p.PerRune[m.Rune]; ok {
 		return a
@@ -129,6 +133,7 @@ var extFormats = map[string]Format{
 
 	".docx": FormatOffice, ".doc": FormatOffice, ".odt": FormatOffice, ".rtf": FormatOffice,
 	".xlsx": FormatOffice, ".pptx": FormatOffice, ".pages": FormatOffice,
+	".epub": FormatOffice,
 
 	".pdf": FormatPDF,
 }

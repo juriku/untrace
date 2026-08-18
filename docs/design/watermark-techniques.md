@@ -101,6 +101,27 @@ Stripping metadata does nothing to it. Out of scope for the same reason as C.
    all four categories, including honestly reporting "this carries a statistical
    watermark we cannot read", is the harder and more useful thing.
 
+## E. Compatibility forms: in reach, deliberately out of scope
+
+Fullwidth ASCII and the other characters that fold to ASCII under NFKC are a way
+to write an identifier that collides with another one after a downstream system
+normalises it. A Unicode security linter should catch them.
+
+untrace should not, and tried once. The detector was built in August 2026 and
+removed in the same month, having produced four separate classes of corruption:
+it rewrote Japanese and Korean punctuation, deleted cp1252 punctuation from
+latin-1 files, and gave order-dependent verdicts on the same document.
+
+The reason it failed is not the bugs, which were fixable. It is that fullwidth
+characters are double-width and conspicuous, so they are not a mark you cannot
+see, and C1 mojibake is a text-encoding fault rather than a watermark. Judging
+them needs a "is this document really CJK" threshold, and no principled one was
+found that survives a bilingual README at four percent CJK.
+
+The cost of leaving it out, stated plainly: fullwidth Latin is same-script
+Latin, so R5 mixed-script does not catch `ｐaypal`. That gap is real and
+untrace does not close it.
+
 ## Sources
 
 - [Anthropic, Claude text watermark](https://www.anthropic.com/news/claude-text-watermark)

@@ -1,33 +1,22 @@
 {
   "name": "untrace",
   "displayName": "untrace",
-  "description": "Find invisible characters, homoglyphs and hidden payloads as you edit.",
-  "version": "0.1.0",
+  "description": "Find and remove invisible characters, hidden payloads and AI provenance markers.",
+  "version": "0.0.1",
   "publisher": "juriku",
   "license": "MIT",
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/juriku/untrace.git",
-    "directory": "editors/vscode"
-  },
+  "icon": "media/icon.png",
   "engines": {
-    "vscode": "^1.104.0"
+    "vscode": "^1.96.0",
+    "node": ">=20"
   },
   "categories": [
     "Linters"
   ],
-  "keywords": [
-    "unicode",
-    "invisible characters",
-    "zero width space",
-    "homoglyph",
-    "lookalike letters",
-    "bidi",
-    "trojan source",
-    "c2pa",
-    "ai detection",
-    "watermark"
-  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/juriku/untrace.git"
+  },
   "main": "./out/extension.js",
   "activationEvents": [
     "onStartupFinished"
@@ -39,56 +28,175 @@
         "untrace.enable": {
           "type": "boolean",
           "default": true,
-          "description": "Report untrace findings as diagnostics."
+          "scope": "resource",
+          "description": "Check files for hidden characters. Turning this off stops all activity."
         },
         "untrace.path": {
           "type": "string",
-          "default": "untrace",
-          "description": "Path to the untrace binary. Resolved from PATH when not absolute."
+          "default": "",
+          "scope": "machine-overridable",
+          "description": "Path to the untrace executable. Empty means look for it on PATH."
         },
-        "untrace.run": {
-          "type": "string",
-          "enum": [
-            "onSave",
-            "onType",
-            "off"
-          ],
-          "default": "onSave",
-          "enumDescriptions": [
-            "Check when a file is opened and saved.",
-            "Also check while typing, debounced.",
-            "Only check when the Check File command is run."
-          ],
-          "description": "When to check a document."
+        "untrace.timeout": {
+          "type": "number",
+          "default": 5000,
+          "minimum": 250,
+          "scope": "resource",
+          "description": "Milliseconds to wait for untrace before giving up on a file."
         },
-        "untrace.strict": {
+        "untrace.checkWholeWorkspaceOnStartup": {
           "type": "boolean",
-          "default": false,
-          "description": "Report every marker, including ones doing a legitimate job such as emoji joiners."
+          "default": true,
+          "scope": "resource",
+          "description": "Check every file in the folder when it opens, and show the summary if anything is hidden."
+        },
+        "untrace.maxFileSizeKB": {
+          "type": "number",
+          "default": 5120,
+          "minimum": 1,
+          "scope": "resource",
+          "description": "Skip files larger than this, in kilobytes."
+        },
+        "untrace.fixOnSave": {
+          "type": "string",
+          "enum": ["off", "hidden", "all"],
+          "default": "off",
+          "scope": "resource",
+          "description": "What untrace changes when you save a file.",
+          "enumDescriptions": [
+            "Nothing. Saving never changes the file.",
+            "Remove invisible characters and hidden messages. Typography and lookalike letters are left alone.",
+            "Apply every fix untrace offers, including typography such as em dashes and curly quotes."
+          ]
         }
       }
     },
     "commands": [
       {
-        "command": "untrace.checkFile",
-        "title": "untrace: Check File"
+        "command": "untrace.fixFile",
+        "title": "Remove hidden characters",
+        "category": "untrace",
+        "icon": {
+          "light": "media/toolbar-light.svg",
+          "dark": "media/toolbar-dark.svg"
+        }
+      },
+      {
+        "command": "untrace.scanWorkspace",
+        "title": "Search every file",
+        "category": "untrace",
+        "icon": "$(search)"
+      },
+      {
+        "command": "untrace.fixWorkspace",
+        "title": "Remove hidden characters from every file",
+        "category": "untrace",
+        "icon": "$(clear-all)"
+      },
+      {
+        "command": "untrace.showSummary",
+        "title": "Show every hidden character",
+        "category": "untrace"
+      },
+      {
+        "command": "untrace.showLog",
+        "title": "Show the log",
+        "category": "untrace"
+      },
+      {
+        "command": "untrace.enableFixOnSave",
+        "title": "Remove hidden characters whenever I save",
+        "category": "untrace"
+      }
+    ],
+    "walkthroughs": [
+      {
+        "id": "untrace.start",
+        "title": "untrace",
+        "description": "Find and remove invisible characters, hidden messages and lookalike letters.",
+        "steps": [
+          {
+            "id": "what",
+            "title": "What untrace adds",
+            "description": "VS Code already boxes invisible characters. untrace names them, decodes what they spell, catches lookalike words, and covers Markdown, which the built-in highlighting skips.",
+            "media": {
+              "markdown": "media/what.md"
+            }
+          },
+          {
+            "id": "fix",
+            "title": "Remove hidden characters",
+            "description": "One fixed rule per character, never a guess.\n[Remove them in this file](command:untrace.fixFile)",
+            "media": {
+              "markdown": "media/fix.md"
+            },
+            "completionEvents": [
+              "onCommand:untrace.fixFile"
+            ]
+          },
+          {
+            "id": "save",
+            "title": "Fix automatically when I save",
+            "description": "Off until you ask for it. The button turns on the safe setting, which leaves anything you can see alone.\n[Turn it on](command:untrace.enableFixOnSave)",
+            "media": {
+              "markdown": "media/save.md"
+            },
+            "completionEvents": [
+              "onSettingChanged:untrace.fixOnSave"
+            ]
+          }
+        ]
+      }
+    ],
+    "menus": {
+      "editor/title": [
+        {
+          "command": "untrace.fixFile",
+          "when": "untrace.hasFindings",
+          "group": "navigation@1"
+        }
+      ],
+      "editor/context": [
+        {
+          "command": "untrace.fixFile",
+          "when": "editorTextFocus && untrace.hasFindings",
+          "group": "1_modification@100"
+        }
+      ],
+      "commandPalette": [
+        {
+          "command": "untrace.fixFile",
+          "when": "editorIsOpen"
+        }
+      ]
+    },
+    "keybindings": [
+      {
+        "command": "untrace.fixFile",
+        "key": "ctrl+alt+u",
+        "mac": "cmd+alt+u",
+        "when": "editorTextFocus && untrace.hasFindings"
       }
     ]
   },
   "scripts": {
-    "compile": "tsc -p .",
-    "watch": "tsc -p . -w",
-    "typecheck": "tsc -p tsconfig.test.json",
-    "test": "node --test src/*.test.ts",
-    "test:integration": "vscode-test",
+    "compile": "tsc -p ./",
+    "typecheck": "tsc -p ./ --noEmit",
+    "pretest": "npm run compile",
+    "test": "mocha \"out/*.test.js\"",
+    "pretest:integration": "npm run compile",
+    "test:integration": "vscode-test --fail-zero",
+    "prepackage": "node -e \"require('node:fs').copyFileSync('../../LICENSE', 'LICENSE')\"",
+    "package": "npm run compile && vsce package --no-dependencies",
     "vscode:prepublish": "npm run compile"
   },
   "devDependencies": {
     "@types/mocha": "^10.0.10",
-    "@types/node": "^26.2.0",
-    "@types/vscode": "^1.104.0",
+    "@types/node": "^24.0.0",
+    "@types/vscode": "~1.96.0",
     "@vscode/test-cli": "^0.0.15",
     "@vscode/test-electron": "^3.1.0",
+    "@vscode/vsce": "^3.9.2",
     "mocha": "^11.8.0",
     "typescript": "^7.0.2"
   }

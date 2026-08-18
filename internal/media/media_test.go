@@ -8,6 +8,7 @@ import (
 	"image/color"
 	"image/jpeg"
 	"image/png"
+	"strings"
 	"testing"
 
 	"github.com/juriku/untrace/internal/provenance"
@@ -335,6 +336,53 @@ func TestTruncatedFilesDoNotPanic(t *testing.T) {
 	}
 }
 
+const tc260XMP = `<x:xmpmeta><rdf:RDF xmlns:AIGC="http://www.tc260.org.cn/ns/AIGC/1.0/">` +
+	`<AIGC:Label>1</AIGC:Label><AIGC:ContentProducer>Doubao</AIGC:ContentProducer></rdf:RDF></x:xmpmeta>`
+
+func TestPNGCarryingATC260LabelIsNamed(t *testing.T) {
+	payload := append([]byte("XML:com.adobe.xmp\x00\x00\x00\x00\x00"), tc260XMP...)
+	data := insertPNGChunk(t, basePNG(t), "iTXt", payload)
+
+	findings := Inspect(data).Findings
+	if len(findings) != 1 {
+		t.Fatalf("got %d findings, want 1: %+v", len(findings), findings)
+	}
+	if got := findings[0].Label; got != AIGCLabel {
+		t.Errorf("Label = %q, want %q", got, AIGCLabel)
+	}
+	if got := findings[0].Value; got != "Doubao" {
+		t.Errorf("Value = %q, want %q", got, "Doubao")
+	}
+}
+
+// The keyword is what an ordinary XMP chunk reports, and a chunk without the
+// TC260 namespace must keep it.
+func TestPNGWithoutATC260LabelKeepsItsKeyword(t *testing.T) {
+	payload := []byte("XML:com.adobe.xmp\x00\x00\x00\x00\x00<x:xmpmeta></x:xmpmeta>")
+	data := insertPNGChunk(t, basePNG(t), "iTXt", payload)
+
+	findings := Inspect(data).Findings
+	if len(findings) != 1 {
+		t.Fatalf("got %d findings, want 1", len(findings))
+	}
+	if findings[0].Label == AIGCLabel {
+		t.Error("an ordinary XMP chunk was labelled AIGC")
+	}
+}
+
+func TestJPEGCarryingATC260LabelIsNamed(t *testing.T) {
+	segment := append(append([]byte(nil), xmpNamespace...), tc260XMP...)
+	data := insertJPEGSegment(t, baseJPEG(t), 0xE1, segment)
+
+	findings := Inspect(data).Findings
+	if len(findings) != 1 {
+		t.Fatalf("got %d findings, want 1: %+v", len(findings), findings)
+	}
+	if got := findings[0].Label; got != AIGCLabel {
+		t.Errorf("Label = %q, want %q", got, AIGCLabel)
+	}
+}
+
 // exifWithSoftware builds a minimal little-endian TIFF block with one IFD entry
 // holding tag 0x0131.
 func exifWithSoftware(value string) []byte {
@@ -356,4 +404,454 @@ func exifWithSoftware(value string) []byte {
 	tiff = append(tiff, v...)
 
 	return append(body, tiff...)
+}
+
+// riffFile assembles a WebP: the RIFF header, then each chunk with its
+// little-endian size and a pad byte when that size is odd.
+func riffFile(t *testing.T, chunks ...[2]string) []byte {
+	t.Helper()
+
+	var body bytes.Buffer
+	for _, c := range chunks {
+		fourCC, payload := c[0], c[1]
+		if len(fourCC) != 4 {
+			t.Fatalf("FourCC %q is not four bytes", fourCC)
+		}
+		body.WriteString(fourCC)
+		binary.Write(&body, binary.LittleEndian, uint32(len(payload)))
+		body.WriteString(payload)
+		if len(payload)%2 == 1 {
+			body.WriteByte(0)
+		}
+	}
+
+	var out bytes.Buffer
+	out.WriteString("RIFF")
+	binary.Write(&out, binary.LittleEndian, uint32(body.Len()+4))
+	out.WriteString("WEBP")
+	out.Write(body.Bytes())
+	return out.Bytes()
+}
+
+func baseWebP(t *testing.T, extra ...[2]string) []byte {
+	t.Helper()
+	chunks := append([][2]string{{"VP8L", "pixels-go-here"}}, extra...)
+	return riffFile(t, chunks...)
+}
+
+func TestDetectWebP(t *testing.T) {
+	if got := Detect(baseWebP(t)); got != FormatWebP {
+		t.Errorf("Detect = %q, want %q", got, FormatWebP)
+	}
+}
+
+// RIFF is not WebP on its own: a WAV file starts the same way.
+func TestNonWebPRIFFIsNotDetected(t *testing.T) {
+	wav := append([]byte("RIFF\x00\x00\x00\x00WAVE"), make([]byte, 8)...)
+
+	if got := Detect(wav); got == FormatWebP {
+		t.Error("a WAVE file was detected as WebP")
+	}
+}
+
+func TestWebPExifSoftwareExtracted(t *testing.T) {
+	// The WebP EXIF payload is a bare TIFF block, unlike JPEG's.
+	tiff := exifWithSoftware("Midjourney v6")[len(exifHeader):]
+	data := baseWebP(t, [2]string{"EXIF", string(tiff)})
+
+	findings := Inspect(data).Findings
+	if len(findings) != 1 {
+		t.Fatalf("got %d findings, want 1: %+v", len(findings), findings)
+	}
+	if findings[0].Kind != EXIF || findings[0].Value != "Midjourney v6" {
+		t.Errorf("finding = %+v", findings[0])
+	}
+}
+
+func TestWebPXMPCreatorToolExtracted(t *testing.T) {
+	data := baseWebP(t, [2]string{"XMP ", `<x:xmpmeta><xmp:CreatorTool>Adobe Firefly 3</xmp:CreatorTool></x:xmpmeta>`})
+
+	findings := Inspect(data).Findings
+	if len(findings) != 1 {
+		t.Fatalf("got %d findings, want 1: %+v", len(findings), findings)
+	}
+	if findings[0].Kind != XMP || findings[0].Value != "Adobe Firefly 3" {
+		t.Errorf("finding = %+v", findings[0])
+	}
+}
+
+func TestWebPC2PAIdentifiedByContent(t *testing.T) {
+	data := baseWebP(t, [2]string{"C2PA", "\x00\x00jumbc2pa claim_generator"})
+
+	findings := Inspect(data).Findings
+	if len(findings) != 1 || findings[0].Kind != C2PA {
+		t.Fatalf("findings = %+v", findings)
+	}
+}
+
+func TestWebPCarryingATC260LabelIsNamed(t *testing.T) {
+	data := baseWebP(t, [2]string{"XMP ", tc260XMP})
+
+	findings := Inspect(data).Findings
+	if len(findings) != 1 {
+		t.Fatalf("got %d findings, want 1", len(findings))
+	}
+	if findings[0].Label != AIGCLabel || findings[0].Value != "Doubao" {
+		t.Errorf("finding = %+v", findings[0])
+	}
+}
+
+// Removing a chunk without rewriting the RIFF size leaves a file every decoder
+// reads as truncated, which is the failure this pins.
+func TestWebPStripRewritesTheRIFFSize(t *testing.T) {
+	data := baseWebP(t, [2]string{"XMP ", `<x:xmpmeta><xmp:CreatorTool>Midjourney v6</xmp:CreatorTool></x:xmpmeta>`})
+
+	out, changed, err := Strip(data, func(Finding) bool { return true })
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !changed {
+		t.Fatal("nothing was stripped")
+	}
+
+	declared := binary.LittleEndian.Uint32(out[4:])
+	if int(declared) != len(out)-8 {
+		t.Errorf("RIFF size = %d, want %d", declared, len(out)-8)
+	}
+	if len(Inspect(out).Findings) != 0 {
+		t.Errorf("metadata survived: %+v", Inspect(out).Findings)
+	}
+}
+
+// VP8X announces which optional chunks the file carries. A chunk removed
+// without clearing its bit leaves libwebp looking for metadata that is gone.
+func TestWebPStripClearsTheVP8XFlag(t *testing.T) {
+	cases := map[string]struct {
+		fourCC  string
+		payload string
+		flag    byte
+	}{
+		"exif": {"EXIF", string(exifWithSoftware("Claude")[len(exifHeader):]), 0x08},
+		"xmp":  {"XMP ", `<x:xmpmeta><xmp:CreatorTool>Claude</xmp:CreatorTool></x:xmpmeta>`, 0x04},
+	}
+
+	for name, c := range cases {
+		t.Run(name, func(t *testing.T) {
+			data := riffFile(t,
+				[2]string{"VP8X", string([]byte{c.flag, 0, 0, 0, 7, 0, 0, 7, 0, 0})},
+				[2]string{"VP8L", "pixels"},
+				[2]string{c.fourCC, c.payload})
+
+			if got := vp8xFlags(t, data); got&c.flag == 0 {
+				t.Fatalf("fixture flags = 0x%02x, want bit 0x%02x set", got, c.flag)
+			}
+
+			out, changed, err := Strip(data, everyRecord)
+			if err != nil || !changed {
+				t.Fatalf("Strip: changed=%v err=%v", changed, err)
+			}
+			if got := vp8xFlags(t, out); got&c.flag != 0 {
+				t.Errorf("flags = 0x%02x, want bit 0x%02x cleared", got, c.flag)
+			}
+		})
+	}
+}
+
+func vp8xFlags(t *testing.T, data []byte) byte {
+	t.Helper()
+	chunks, err := riffChunks(data)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, c := range chunks {
+		if c.fourCC == "VP8X" && len(c.data) > 0 {
+			return c.data[0]
+		}
+	}
+	t.Fatal("no VP8X chunk")
+	return 0
+}
+
+func TestWebPStripKeepsThePixelChunk(t *testing.T) {
+	data := baseWebP(t, [2]string{"EXIF", string(exifWithSoftware("Claude")[len(exifHeader):])})
+
+	out, _, err := Strip(data, func(Finding) bool { return true })
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	chunks, err := riffChunks(out)
+	if err != nil {
+		t.Fatalf("the stripped file no longer walks: %v", err)
+	}
+	if len(chunks) != 1 || chunks[0].fourCC != "VP8L" {
+		t.Errorf("chunks = %+v, want just VP8L", chunks)
+	}
+	if string(chunks[0].data) != "pixels-go-here" {
+		t.Errorf("pixel data changed to %q", chunks[0].data)
+	}
+}
+
+// An odd-sized chunk is followed by a pad byte that belongs to it; missing that
+// shifts every later chunk by one.
+func TestWebPWalksPastAnOddSizedChunk(t *testing.T) {
+	data := riffFile(t,
+		[2]string{"VP8L", "odd"},
+		[2]string{"XMP ", `<x:xmpmeta><xmp:CreatorTool>Claude</xmp:CreatorTool></x:xmpmeta>`})
+
+	findings := Inspect(data).Findings
+	if len(findings) != 1 || findings[0].Value != "Claude" {
+		t.Errorf("findings = %+v", findings)
+	}
+}
+
+func TestWebPStripSelectsRecords(t *testing.T) {
+	data := baseWebP(t,
+		[2]string{"EXIF", string(exifWithSoftware("Claude")[len(exifHeader):])},
+		[2]string{"XMP ", `<x:xmpmeta><xmp:CreatorTool>Canon EOS R5</xmp:CreatorTool></x:xmpmeta>`})
+
+	out, _, err := Strip(data, func(f Finding) bool { return f.Value == "Claude" })
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	findings := Inspect(out).Findings
+	if len(findings) != 1 || findings[0].Value != "Canon EOS R5" {
+		t.Errorf("findings = %+v, want only the camera record", findings)
+	}
+}
+
+// A TIFF file is the same block the EXIF segment carries, without the header.
+func tiffFile(software string) []byte {
+	return exifWithSoftware(software)[len(exifHeader):]
+}
+
+func TestDetectTIFF(t *testing.T) {
+	if got := Detect(tiffFile("Claude")); got != FormatTIFF {
+		t.Errorf("Detect = %q, want %q", got, FormatTIFF)
+	}
+}
+
+// "II" and "MM" alone are not a TIFF: the magic number 42 is what confirms one.
+func TestDetectRejectsAByteOrderMarkWithoutTheMagic(t *testing.T) {
+	for _, prefix := range []string{"II\x00\x00", "MM\x00\x00", "II"} {
+		data := append([]byte(prefix), make([]byte, 16)...)
+		if got := Detect(data); got == FormatTIFF {
+			t.Errorf("%q was detected as TIFF", prefix)
+		}
+	}
+}
+
+func TestTIFFSoftwareExtracted(t *testing.T) {
+	findings := Inspect(tiffFile("Midjourney v6")).Findings
+
+	if len(findings) != 1 {
+		t.Fatalf("got %d findings, want 1: %+v", len(findings), findings)
+	}
+	if findings[0].Kind != EXIF || findings[0].Value != "Midjourney v6" {
+		t.Errorf("finding = %+v", findings[0])
+	}
+}
+
+func TestTIFFWithNoSoftwareTagIsClean(t *testing.T) {
+	bare := []byte{'I', 'I', 42, 0, 8, 0, 0, 0, 0, 0, 0, 0, 0, 0}
+
+	if findings := Inspect(bare).Findings; len(findings) != 0 {
+		t.Errorf("a TIFF with no Software tag reported %+v", findings)
+	}
+}
+
+// Every offset in a TIFF is absolute, so the file has to keep its length.
+func TestTIFFStripBlanksInPlace(t *testing.T) {
+	data := tiffFile("Midjourney v6")
+
+	out, changed, err := Strip(data, everyRecord)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !changed {
+		t.Fatal("nothing was stripped")
+	}
+	if len(out) != len(data) {
+		t.Errorf("length changed from %d to %d", len(data), len(out))
+	}
+	if findings := Inspect(out).Findings; len(findings) != 0 {
+		t.Errorf("the value survived: %+v", findings)
+	}
+	if bytes.Contains(out, []byte("Midjourney")) {
+		t.Error("the generator name is still in the bytes")
+	}
+}
+
+func TestTIFFStripLeavesUnselectedRecords(t *testing.T) {
+	data := tiffFile("Canon EOS R5")
+
+	out, changed, err := Strip(data, func(f Finding) bool { return f.Value == "Claude" })
+	if err != nil {
+		t.Fatal(err)
+	}
+	if changed {
+		t.Error("a record the filter rejected was stripped")
+	}
+	if !bytes.Equal(out, data) {
+		t.Error("the file changed despite nothing being selected")
+	}
+}
+
+const svgWithXMP = `<svg xmlns="http://www.w3.org/2000/svg">
+  <metadata>
+    <x:xmpmeta xmlns:x="adobe:ns:meta/">
+      <xmp:CreatorTool>Midjourney v6</xmp:CreatorTool>
+    </x:xmpmeta>
+  </metadata>
+  <rect width="10" height="10"/>
+</svg>`
+
+func TestLooksLikeSVG(t *testing.T) {
+	if !LooksLikeSVG(svgWithXMP) {
+		t.Error("an svg was not recognised")
+	}
+	if LooksLikeSVG("<html><body>not an svg</body></html>") {
+		t.Error("html was taken for an svg")
+	}
+}
+
+// An XMP packet normally sits inside <metadata>, so a naive scan matches the
+// same bytes twice and reports one record as two.
+func TestInspectSVGReportsNestedMetadataOnce(t *testing.T) {
+	findings := InspectSVG(svgWithXMP)
+
+	if len(findings) != 1 {
+		t.Fatalf("got %d findings, want 1: %+v", len(findings), findings)
+	}
+	if findings[0].Value != "Midjourney v6" {
+		t.Errorf("value = %q", findings[0].Value)
+	}
+}
+
+func TestInspectSVGReadsDublinCoreAndAIGC(t *testing.T) {
+	cases := map[string]struct{ svg, want string }{
+		"dublin core": {`<svg><metadata><dc:creator>Claude</dc:creator></metadata></svg>`, "Claude"},
+		"tc260":       {`<svg><metadata>` + tc260XMP + `</metadata></svg>`, "Doubao"},
+	}
+
+	for name, c := range cases {
+		t.Run(name, func(t *testing.T) {
+			findings := InspectSVG(c.svg)
+			if len(findings) != 1 || findings[0].Value != c.want {
+				t.Errorf("findings = %+v, want %q", findings, c.want)
+			}
+		})
+	}
+}
+
+func TestSVGWithNoMetadataIsClean(t *testing.T) {
+	if f := InspectSVG(`<svg><rect width="1" height="1"/></svg>`); len(f) != 0 {
+		t.Errorf("a plain svg reported %+v", f)
+	}
+}
+
+// The element is kept so the document keeps its shape; only its content goes.
+func TestStripSVGEmptiesTheElementAndKeepsTheDrawing(t *testing.T) {
+	out, changed := StripSVG(svgWithXMP, everyRecord)
+
+	if !changed {
+		t.Fatal("nothing was stripped")
+	}
+	if strings.Contains(out, "Midjourney") {
+		t.Error("the generator name survived")
+	}
+	if !strings.Contains(out, `<rect width="10" height="10"/>`) {
+		t.Errorf("the drawing was damaged:\n%s", out)
+	}
+	if !strings.Contains(out, "<metadata>") || !strings.Contains(out, "</metadata>") {
+		t.Errorf("the element itself was removed:\n%s", out)
+	}
+	if f := InspectSVG(out); len(f) != 0 {
+		t.Errorf("metadata still reported: %+v", f)
+	}
+}
+
+func TestStripSVGLeavesUnselectedRecords(t *testing.T) {
+	out, changed := StripSVG(svgWithXMP, func(Finding) bool { return false })
+
+	if changed || out != svgWithXMP {
+		t.Error("a record the filter rejected was stripped")
+	}
+}
+
+func gifFile(t *testing.T, blocks ...[2]string) []byte {
+	t.Helper()
+	var b bytes.Buffer
+	b.WriteString("GIF89a")
+	b.Write(make([]byte, 7)) // width, height, packed with no colour table, aspect
+
+	for _, blk := range blocks {
+		label, payload := blk[0], blk[1]
+		b.WriteByte(0x21)
+		b.WriteByte(label[0])
+		for len(payload) > 0 {
+			n := len(payload)
+			if n > 255 {
+				n = 255
+			}
+			b.WriteByte(byte(n))
+			b.WriteString(payload[:n])
+			payload = payload[n:]
+		}
+		b.WriteByte(0)
+	}
+	b.WriteByte(0x3B)
+	return b.Bytes()
+}
+
+func TestDetectGIF(t *testing.T) {
+	if got := Detect(gifFile(t)); got != FormatGIF {
+		t.Errorf("Detect = %q, want %q", got, FormatGIF)
+	}
+}
+
+func TestGIFXMPExtracted(t *testing.T) {
+	data := gifFile(t, [2]string{"\xff", `<x:xmpmeta><xmp:CreatorTool>Adobe Firefly 3</xmp:CreatorTool></x:xmpmeta>`})
+
+	findings := Inspect(data).Findings
+	if len(findings) != 1 || findings[0].Value != "Adobe Firefly 3" {
+		t.Fatalf("findings = %+v", findings)
+	}
+}
+
+func TestGIFCommentExtracted(t *testing.T) {
+	data := gifFile(t, [2]string{"\xfe", "made by a model"})
+
+	findings := Inspect(data).Findings
+	if len(findings) != 1 || findings[0].Value != "made by a model" {
+		t.Fatalf("findings = %+v", findings)
+	}
+}
+
+func TestGIFStripRemovesTheBlockAndKeepsTheTrailer(t *testing.T) {
+	data := gifFile(t, [2]string{"\xfe", "made by a model"})
+
+	out, changed, err := Strip(data, everyRecord)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !changed {
+		t.Fatal("nothing was stripped")
+	}
+	if len(Inspect(out).Findings) != 0 {
+		t.Errorf("the comment survived: %+v", Inspect(out).Findings)
+	}
+	if out[len(out)-1] != 0x3B {
+		t.Error("the trailer was lost")
+	}
+	if !bytes.HasPrefix(out, []byte("GIF89a")) {
+		t.Error("the header was damaged")
+	}
+}
+
+func TestCleanGIFHasNoFindings(t *testing.T) {
+	if f := Inspect(gifFile(t)).Findings; len(f) != 0 {
+		t.Errorf("a plain gif reported %+v", f)
+	}
 }

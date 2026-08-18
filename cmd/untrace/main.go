@@ -10,6 +10,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/juriku/untrace/internal/baseline"
 	"github.com/juriku/untrace/internal/config"
 	"github.com/juriku/untrace/internal/detect"
 	"github.com/juriku/untrace/internal/docmeta"
@@ -62,6 +63,9 @@ func (m *stripMode) Set(v string) error {
 func (m *stripMode) IsBoolFlag() bool { return true }
 
 func (m stripMode) shouldStrip(f media.Finding) bool {
+	if m == stripAI && f.Label == media.AIGCLabel && f.Value != "" {
+		return true
+	}
 	return m.shouldStripValue(f.Value)
 }
 
@@ -80,6 +84,7 @@ type options struct {
 	fix              bool
 	stdin            bool
 	asJSON           bool
+	asSARIF          bool
 	failOnFind       bool
 	quiet            bool
 	noColor          bool
@@ -92,6 +97,8 @@ type options struct {
 	stripMetadata    stripMode
 	showVersion      bool
 	configPath       string
+	baselinePath     string
+	writeBaseline    bool
 	ignoreDirs       stringList
 	patterns         stringList
 	excludeChars     stringList
@@ -199,6 +206,49 @@ type summary struct {
 	Metadata       int `json:"metadata_records"`
 	Suppressed     int `json:"suppressed"`
 	Mixed          int `json:"mixed_script_words"`
+	Baselined      int `json:"baselined,omitempty"`
+}
+
+// flag.Parse stops at the first non-flag argument, so "untrace . --fix" takes
+// --fix as a path to scan.
+func flagsFirst(fs *flag.FlagSet, args []string) []string {
+	var flags, paths []string
+
+	for i := 0; i < len(args); i++ {
+		arg := args[i]
+		if arg == "--" {
+			paths = append(paths, args[i+1:]...)
+			break
+		}
+		if len(arg) < 2 || arg[0] != '-' {
+			paths = append(paths, arg)
+			continue
+		}
+
+		flags = append(flags, arg)
+		if i+1 < len(args) && takesValue(fs, arg) {
+			i++
+			flags = append(flags, args[i])
+		}
+	}
+
+	if len(paths) == 0 {
+		return flags
+	}
+	return append(append(flags, "--"), paths...)
+}
+
+func takesValue(fs *flag.FlagSet, arg string) bool {
+	name := strings.TrimLeft(arg, "-")
+	if strings.ContainsRune(name, '=') {
+		return false
+	}
+	f := fs.Lookup(name)
+	if f == nil {
+		return false
+	}
+	b, ok := f.Value.(interface{ IsBoolFlag() bool })
+	return !ok || !b.IsBoolFlag()
 }
 
 func main() { os.Exit(run()) }
@@ -232,6 +282,8 @@ func run() int {
 		"with --stdin, resolve format, config and regions as if the content were this path")
 	fs.BoolVar(&opt.asJSON, "json", false,
 		"emit findings as JSON, on stdout or on stderr in --stdin mode")
+	fs.BoolVar(&opt.asSARIF, "sarif", false,
+		"emit findings as SARIF 2.1.0 for GitHub code scanning, on the same stream as --json")
 	fs.BoolVar(&opt.failOnFind, "fail", false,
 		"exit 1 if anything actionable is found (payloads, mixed script, or characters --fix would change)")
 	fs.BoolVar(&opt.quiet, "quiet", false, "suppress the per-file report")
@@ -248,16 +300,24 @@ func run() int {
 		"with --fix, also rewrite confusable letters to Latin; off by default, since it rewrites the author's script")
 	fs.BoolVar(&opt.showVersion, "version", false, "print the version and exit")
 	fs.StringVar(&opt.configPath, "config", "", "path to a config file, overriding discovery")
+	fs.StringVar(&opt.baselinePath, "baseline", "",
+		"accept the findings recorded in this file, so only new ones fail")
+	fs.BoolVar(&opt.writeBaseline, "write-baseline", false,
+		"record every finding as accepted, to --baseline or "+baseline.DefaultPath)
 	fs.Var(&opt.ignoreDirs, "ignore-dir", "additional directory name to skip (repeatable)")
 	fs.Var(&opt.patterns, "pattern", "only scan files matching this glob (repeatable)")
 	fs.Var(&opt.excludeChars, "exclude-char", "codepoint to ignore, as U+XXXX or a literal (repeatable)")
 
-	if err := fs.Parse(os.Args[1:]); err != nil {
+	if err := fs.Parse(flagsFirst(fs, os.Args[1:])); err != nil {
 		return 2
 	}
 	if opt.showVersion {
 		fmt.Println("untrace", version)
 		return 0
+	}
+	if opt.asJSON && opt.asSARIF {
+		fmt.Fprintln(os.Stderr, "untrace: --json and --sarif are alternatives; pass one")
+		return 2
 	}
 
 	targets := fs.Args()
@@ -297,7 +357,36 @@ func run() int {
 		reports = runPaths(targets, opt, markerOpts, cfg)
 	}
 
+	if opt.writeBaseline {
+		path := opt.baselinePath
+		if path == "" {
+			path = baseline.DefaultPath
+		}
+		entries := baselineEntries(reports)
+		if err := baseline.Write(path, entries); err != nil {
+			fmt.Fprintln(os.Stderr, "untrace:", err)
+			return 2
+		}
+		fmt.Fprintf(os.Stderr, "untrace: recorded %d finding(s) as accepted in %s\n", len(entries), path)
+		return 0
+	}
+
+	ids := identitiesFor(reports)
+
+	var stale []baseline.Entry
+	baselined := 0
+	if opt.baselinePath != "" {
+		set, err := baseline.Load(opt.baselinePath)
+		if err != nil {
+			fmt.Fprintln(os.Stderr, "untrace:", err)
+			return 2
+		}
+		baselined = applyBaseline(reports, ids, set)
+		stale = set.Stale()
+	}
+
 	sum := summarise(reports)
+	sum.Baselined = baselined
 
 	if opt.asJSON {
 		enc := json.NewEncoder(reportTo)
@@ -306,8 +395,18 @@ func run() int {
 			fmt.Fprintln(os.Stderr, "untrace:", err)
 			return 2
 		}
+	} else if opt.asSARIF {
+		if err := writeSarif(reportTo, reports, ids); err != nil {
+			fmt.Fprintln(os.Stderr, "untrace:", err)
+			return 2
+		}
 	} else if !opt.quiet {
 		printReport(reportTo, reports, sum, opt, color)
+	}
+
+	for _, e := range stale {
+		fmt.Fprintf(os.Stderr, "untrace: baseline entry %s no longer matches anything (%s %s)\n",
+			e.ID, e.Path, e.Codepoint)
 	}
 
 	for _, r := range reports {
@@ -417,10 +516,28 @@ func runPaths(targets []string, opt options, mo markers.Options, cfg *config.Con
 			continue
 		}
 		for _, path := range files {
+			if isBaselineFile(path, opt.baselinePath) {
+				continue
+			}
 			reports = append(reports, processFile(path, opt, mo, cfg))
 		}
 	}
 	return reports
+}
+
+func isBaselineFile(path, configured string) bool {
+	if filepath.Base(path) == baseline.DefaultPath {
+		return true
+	}
+	if configured == "" {
+		return false
+	}
+	want, err := filepath.Abs(configured)
+	if err != nil {
+		return false
+	}
+	got, err := filepath.Abs(path)
+	return err == nil && got == want
 }
 
 func processFile(path string, opt options, mo markers.Options, cfg *config.Config) fileReport {
@@ -447,15 +564,30 @@ func processFile(path string, opt options, mo markers.Options, cfg *config.Confi
 	}
 	rep.Encoding = dec.Enc.String()
 
+	text := dec.Text
+	metaChanged := false
+	if media.LooksLikeSVG(text) {
+		for _, f := range media.InspectSVG(text) {
+			rep.Metadata = append(rep.Metadata, metaRecord{
+				Kind: string(f.Kind), Label: f.Label, Value: f.Value, Bytes: f.Bytes,
+				Stripped: opt.fix && opt.stripMetadata.shouldStrip(f),
+			})
+		}
+		if opt.fix && opt.stripMetadata != stripNone {
+			text, metaChanged = media.StripSVG(text, opt.stripMetadata.shouldStrip)
+		}
+	}
+
 	resolved := cfg.For(relativeTo(cfg.Path, path))
-	d := opt.detector(path, mo, format, resolved, dec.Text)
-	res := d.Run(dec.Text)
+	d := opt.detector(path, mo, format, resolved, text)
+	res := d.Run(text)
 	rep.Findings = res.Findings
 	rep.Payloads = res.Payloads
 	rep.Mixed = res.Mixed
 	rep.Suppressed = res.Suppressed
+	rep.assessProvenance()
 
-	if opt.fix && res.Changed {
+	if opt.fix && (res.Changed || metaChanged) {
 		encoded, err := textfile.Encode(res.Text, dec)
 		if err != nil {
 			rep.Error = err.Error()
@@ -677,12 +809,34 @@ func (r *fileReport) markResidue(out []byte) {
 	}
 }
 
+// Case is load-bearing. PDF's /Creator is the authoring application and Dublin
+// Core's dc:creator is a person; docmeta reports the dictionary key for one and
+// the XML local name for the other.
+var toolFields = map[string]bool{
+	"Software": true, "CreatorTool": true, "Application": true,
+	"generator": true, "Producer": true, "Creator": true,
+}
+
+func namesATool(kind, label string) bool {
+	return toolFields[label] || kind == string(media.C2PA)
+}
+
 // assessProvenance reads the file's own metadata as evidence about its origin.
 // A named generator raises confidence in everything else found in that file; a
 // bare credential does not, since cameras sign authentic photographs too.
 func (r *fileReport) assessProvenance() {
 	for _, m := range r.Metadata {
-		if tool, ok := provenance.Generator(m.Value); ok {
+		if m.Label == media.AIGCLabel {
+			detail := "declared under GB 45438-2025"
+			if m.Value != "" {
+				detail = m.Value + ", declared under GB 45438-2025"
+			}
+			r.Signals = append(r.Signals, provenance.Signal{
+				Source: m.Kind + " AIGC", Detail: detail, AI: true,
+			})
+			continue
+		}
+		if tool, ok := provenance.Generator(m.Value); ok && namesATool(m.Kind, m.Label) {
 			source := m.Kind
 			if m.Label != "" {
 				source = m.Kind + " " + m.Label

@@ -157,6 +157,9 @@ func (d *Detector) Run(text string) Result {
 	var census resolve.Census
 	censusReady := false
 
+	var typography resolve.Typography
+	typographyReady := false
+
 	line, col := 1, 1
 	byteAt := 0
 
@@ -210,6 +213,19 @@ func (d *Detector) Run(text string) Result {
 				censusReady = true
 			}
 			if legit, _ := resolve.Legitimate(runes, i, census); legit {
+				write(orig)
+				res.Legitimate++
+				col++
+				continue
+			}
+		}
+
+		if !d.Strict && d.Policy.Format == resolve.FormatProse && !d.Policy.TypographyConfigured() {
+			if !typographyReady {
+				typography = resolve.NewTypography(runes)
+				typographyReady = true
+			}
+			if typography.Consistent(r) {
 				write(orig)
 				res.Legitimate++
 				col++

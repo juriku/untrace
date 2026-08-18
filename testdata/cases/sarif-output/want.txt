@@ -1,0 +1,171 @@
+{
+  "$schema": "https://raw.githubusercontent.com/oasis-tcs/sarif-spec/main/sarif-2.1/schema/sarif-schema-2.1.0.json",
+  "version": "2.1.0",
+  "runs": [
+    {
+      "tool": {
+        "driver": {
+          "name": "untrace",
+          "version": "dev",
+          "informationUri": "https://github.com/juriku/untrace",
+          "rules": [
+            {
+              "id": "untrace/U+0430",
+              "name": "Cyrillic Small Letter A",
+              "shortDescription": {
+                "text": "Cyrillic Small Letter A (U+0430)"
+              },
+              "fullDescription": {
+                "text": "Cyrillic Small Letter A is a typographic marker. It is a letter from another script that looks like a Latin one."
+              },
+              "help": {
+                "text": "Run untrace --fix on this file, or add an untrace:ignore comment if the character is deliberate."
+              }
+            },
+            {
+              "id": "untrace/U+200B",
+              "name": "Zero Width Space",
+              "shortDescription": {
+                "text": "Zero Width Space (U+200B)"
+              },
+              "fullDescription": {
+                "text": "Zero Width Space is a hidden marker. It is invisible when rendered and survives copy and paste."
+              },
+              "help": {
+                "text": "Run untrace --fix on this file, or add an untrace:ignore comment if the character is deliberate."
+              }
+            },
+            {
+              "id": "untrace/mixed-script",
+              "name": "Mixed-script word",
+              "shortDescription": {
+                "text": "A word mixing letters from more than one script"
+              },
+              "fullDescription": {
+                "text": "A word combining scripts, such as a Cyrillic letter inside an otherwise Latin word. This is the confusable-letter attack described in UTS #39."
+              },
+              "help": {
+                "text": "Check whether the word is deliberate. untrace does not rewrite it by default, since replacing a letter guesses the script the author meant."
+              }
+            },
+            {
+              "id": "untrace/payload",
+              "name": "Hidden payload",
+              "shortDescription": {
+                "text": "A run of invisible characters encoding data"
+              },
+              "fullDescription": {
+                "text": "Invisible characters carrying an encoded message. A decoded payload is an attack regardless of the format of the file it sits in."
+              },
+              "help": {
+                "text": "Run untrace --fix on this file. Read the decoded text first: it names what was being tracked."
+              }
+            }
+          ]
+        }
+      },
+      "results": [
+        {
+          "ruleId": "untrace/U+0430",
+          "level": "note",
+          "message": {
+            "text": "Cyrillic Small Letter A (U+0430), reported only, not changed by --fix"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "confusable.txt"
+                },
+                "region": {
+                  "startLine": 1,
+                  "startColumn": 8,
+                  "endLine": 1,
+                  "endColumn": 9
+                }
+              }
+            }
+          ],
+          "partialFingerprints": {
+            "untraceIdentity/v1": "10f5d1524882a02b"
+          }
+        },
+        {
+          "ruleId": "untrace/mixed-script",
+          "level": "warning",
+          "message": {
+            "text": "Mixed-script word \"pаypal\", scripts: Cyrillic, Latin"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "confusable.txt"
+                },
+                "region": {
+                  "startLine": 1,
+                  "startColumn": 7,
+                  "endLine": 1,
+                  "endColumn": 13
+                }
+              }
+            }
+          ],
+          "partialFingerprints": {
+            "untraceIdentity/v1": "1aa4997250c42a10"
+          }
+        },
+        {
+          "ruleId": "untrace/U+200B",
+          "level": "warning",
+          "message": {
+            "text": "Zero Width Space (U+200B), removed by --fix"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "hidden.py"
+                },
+                "region": {
+                  "startLine": 1,
+                  "startColumn": 8,
+                  "endLine": 1,
+                  "endColumn": 9
+                }
+              }
+            }
+          ],
+          "partialFingerprints": {
+            "untraceIdentity/v1": "62a40145bd8f779d"
+          }
+        },
+        {
+          "ruleId": "untrace/payload",
+          "level": "error",
+          "message": {
+            "text": "Hidden payload decoding to \"tx\", tag-ascii scheme"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "payload.txt"
+                },
+                "region": {
+                  "startLine": 1,
+                  "startColumn": 5,
+                  "endLine": 1,
+                  "endColumn": 7
+                }
+              }
+            }
+          ],
+          "partialFingerprints": {
+            "untraceIdentity/v1": "fa0cad7d39a12241"
+          }
+        }
+      ]
+    }
+  ]
+}

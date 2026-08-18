@@ -423,6 +423,57 @@ func TestShouldStripSparesNonAIRecords(t *testing.T) {
 	}
 }
 
+// A generator name in a field that holds free prose is a coincidence: an EPUB
+// dc:description is a book blurb and a dc:creator is a person.
+func TestFreeTextFieldsDoNotDeclareAI(t *testing.T) {
+	free := []metaRecord{
+		{Kind: "epub-property", Label: "creator", Value: "Ernie Ball"},
+		{Kind: "epub-property", Label: "description", Value: "a study of minimax 3 search"},
+		{Kind: "pdf", Label: "Author", Value: "Sora Kim"},
+		{Kind: "ooxml-property", Label: "lastModifiedBy", Value: "Kling"},
+		{Kind: "jpeg-comment", Value: "shot on Sora"},
+	}
+
+	for _, m := range free {
+		t.Run(m.Label+"/"+m.Value, func(t *testing.T) {
+			r := fileReport{Metadata: []metaRecord{m}}
+			r.assessProvenance()
+
+			if r.Confidence == "likely" {
+				t.Errorf("%q in %q declared the file AI-generated", m.Value, m.Label)
+			}
+			for _, s := range r.Signals {
+				if s.AI {
+					t.Errorf("AI signal from a free-text field: %+v", s)
+				}
+			}
+		})
+	}
+}
+
+// The same values in a field that names the writing tool still count.
+func TestToolFieldsStillDeclareAI(t *testing.T) {
+	tools := []metaRecord{
+		{Kind: "exif", Label: "Software", Value: "Sora"},
+		{Kind: "xmp", Label: "CreatorTool", Value: "Adobe Firefly 3"},
+		{Kind: "ooxml-property", Label: "Application", Value: "Claude"},
+		{Kind: "epub-property", Label: "generator", Value: "Midjourney v6"},
+		{Kind: "pdf", Label: "Producer", Value: "ChatGPT 4o"},
+		{Kind: "pdf", Label: "Creator", Value: "Kling 2.0"},
+	}
+
+	for _, m := range tools {
+		t.Run(m.Label+"/"+m.Value, func(t *testing.T) {
+			r := fileReport{Metadata: []metaRecord{m}}
+			r.assessProvenance()
+
+			if r.Confidence != "likely" {
+				t.Errorf("%q in %q did not declare the file AI-generated", m.Value, m.Label)
+			}
+		})
+	}
+}
+
 func TestAssessProvenance(t *testing.T) {
 	t.Run("named generator raises confidence", func(t *testing.T) {
 		r := fileReport{Metadata: []metaRecord{
@@ -456,4 +507,47 @@ func TestAssessProvenance(t *testing.T) {
 			t.Errorf("got %v / %q", r.Signals, r.Confidence)
 		}
 	})
+}
+
+// Icon fonts assign their glyphs from the Private Use Area, so a scan of
+// ordinary frontend and shell source has to come back clean.
+func TestPrivateUseFilesScanClean(t *testing.T) {
+	fontAwesome, nerdFont, appleLogo := rune(0xF0A0), rune(0xF489), rune(0xF8FF)
+
+	files := map[string]string{
+		"IconButton.tsx": "const save = \"" + string(fontAwesome) + "\";\n" +
+			"const brand = \"" + string(appleLogo) + "\";\n",
+		"prompt.zsh": "local sep=\"" + string(nerdFont) + "\"\n" +
+			"PROMPT=\"%K{blue} ${sep} %~ %k\"\n",
+	}
+
+	dir := t.TempDir()
+	for name, content := range files {
+		if err := os.WriteFile(filepath.Join(dir, name), []byte(content), 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	mo := markers.Options{Typographic: true, IVS: true}
+	reports := runPaths([]string{dir}, options{fix: true}, mo, &config.Config{})
+
+	if len(reports) != len(files) {
+		t.Fatalf("scanned %d files, want %d", len(reports), len(files))
+	}
+	for _, r := range reports {
+		name := filepath.Base(r.Path)
+		if r.Error != "" {
+			t.Errorf("%s: %s", name, r.Error)
+		}
+		if len(r.Findings) != 0 {
+			t.Errorf("%s: reported %+v", name, r.Findings)
+		}
+		got, err := os.ReadFile(r.Path)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if string(got) != files[name] {
+			t.Errorf("%s: rewritten by fix\n got %q\nwant %q", name, got, files[name])
+		}
+	}
 }

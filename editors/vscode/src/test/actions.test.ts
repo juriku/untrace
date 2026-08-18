@@ -1,185 +1,186 @@
-import assert from "node:assert/strict";
-import { execFileSync } from "node:child_process";
-import { mkdtempSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
-import { join, resolve } from "node:path";
-
+import * as assert from "node:assert/strict";
 import * as vscode from "vscode";
 
-const emDash = String.fromCodePoint(0x2014);
-const zwsp = String.fromCodePoint(0x200b);
-const cyrillicA = String.fromCodePoint(0x0430);
+import { Fixes, fixAllKind, fixAllTitle, type Problems } from "../actions";
+import { toRange } from "../adapt";
+import type { Problem } from "../problems";
+import {
+	analyse,
+	context,
+	cyrillicEr,
+	discard,
+	nbsp,
+	open,
+	tagH,
+	tagI,
+	whole,
+	zwsp,
+} from "./harness";
 
-const repoRoot = resolve(__dirname, "..", "..", "..", "..");
-
-function binary(): string {
-  const dir = mkdtempSync(join(tmpdir(), "untrace-bin-"));
-  const bin = join(dir, process.platform === "win32" ? "untrace.exe" : "untrace");
-  execFileSync("go", ["build", "-o", bin, "./cmd/untrace"], { cwd: repoRoot });
-  return bin;
+class Known implements Problems {
+	constructor(private readonly found: Problem[] | undefined) {}
+	current(): Problem[] | undefined {
+		return this.found;
+	}
+	async refresh(): Promise<Problem[] | undefined> {
+		return this.found;
+	}
+	async withRewrites(): Promise<Problem[] | undefined> {
+		return this.found;
+	}
 }
 
-async function open(content: string): Promise<vscode.TextDocument> {
-  const dir = mkdtempSync(join(tmpdir(), "untrace-actions-"));
-  const file = join(dir, "sample.ts");
-  writeFileSync(file, content, "utf8");
+const uncancelled = new vscode.CancellationTokenSource().token;
 
-  const doc = await vscode.workspace.openTextDocument(vscode.Uri.file(file));
-  const deadline = Date.now() + 30000;
-  while (Date.now() < deadline) {
-    if (vscode.languages.getDiagnostics(doc.uri).length > 0) {
-      return doc;
-    }
-    await new Promise((r) => setTimeout(r, 100));
-  }
-  assert.fail("no diagnostics arrived");
+type Where = (document: vscode.TextDocument, found: Problem[]) => vscode.Range;
+
+async function provide(
+	document: vscode.TextDocument,
+	at: Where,
+	only?: vscode.CodeActionKind,
+): Promise<{ found: Problem[]; actions: vscode.CodeAction[] }> {
+	const found = await analyse(document);
+	const actions = await new Fixes(new Known(found)).provideCodeActions(
+		document,
+		at(document, found),
+		context(found, only),
+		uncancelled,
+	);
+	return { found, actions };
 }
 
-async function actionsFor(doc: vscode.TextDocument): Promise<vscode.CodeAction[]> {
-  const full = new vscode.Range(0, 0, doc.lineCount, 0);
-  return (
-    (await vscode.commands.executeCommand<vscode.CodeAction[]>(
-      "vscode.executeCodeActionProvider",
-      doc.uri,
-      full,
-    )) ?? []
-  );
-}
+const first: Where = (_document, found) => {
+	const problem = found[0];
+	assert.ok(problem, "expected at least one problem");
+	return toRange(problem.range);
+};
 
-async function applyTo(doc: vscode.TextDocument, action: vscode.CodeAction): Promise<string> {
-  assert.ok(action.edit, `${action.title} carries no edit`);
-  assert.ok(await vscode.workspace.applyEdit(action.edit), `${action.title} did not apply`);
-  return doc.getText();
-}
+suite("the code action provider", () => {
+	suiteTeardown(discard);
 
-suite("code actions", () => {
-  suiteSetup(async () => {
-    await vscode.workspace
-      .getConfiguration("untrace")
-      .update("path", binary(), vscode.ConfigurationTarget.Global);
-  });
+	test("every actionable finding carries a quick fix", async () => {
+		const document = await open("offered.txt", `hi${zwsp}there\n`);
+		const { actions } = await provide(document, first);
 
-  test("replacing one character leaves the rest alone", async () => {
-    const doc = await open(`const a = 1 ${emDash} 2;\n`);
-    const actions = await actionsFor(doc);
+		assert.ok(actions.length > 0, "a diagnostic with no code action reads as unfixable");
+	});
 
-    const one = actions.find((a) => a.title.startsWith("Replace U+2014"));
-    assert.ok(one, `no replace action in: ${actions.map((a) => a.title).join(" | ")}`);
-    assert.equal(await applyTo(doc, one), "const a = 1 - 2;\n");
-  });
+	test("offers exactly one preferred fix, and attaches its diagnostic", async () => {
+		const document = await open("preferred.txt", `hi${zwsp}there\n`);
+		const { actions } = await provide(document, first);
 
-  test("an invisible character is removed rather than replaced", async () => {
-    const doc = await open(`const s = "draft${zwsp}copy";\n`);
-    const actions = await actionsFor(doc);
+		const preferred = actions.filter((a) => a.isPreferred);
+		assert.equal(preferred.length, 1);
+		assert.equal(preferred[0]?.title, "untrace: Remove the Zero Width Space");
+		assert.equal(preferred[0]?.kind?.value, vscode.CodeActionKind.QuickFix.value);
+		assert.equal(
+			preferred[0]?.diagnostics?.length,
+			1,
+			"an action with no diagnostic attached sorts below ones that have them",
+		);
+	});
 
-    const one = actions.find((a) => a.title === "Remove U+200B");
-    assert.ok(one, `no remove action in: ${actions.map((a) => a.title).join(" | ")}`);
-    assert.equal(await applyTo(doc, one), 'const s = "draftcopy";\n');
-  });
+	test("offers fixing the whole file second, never ahead of the single fix", async () => {
+		const document = await open("second.txt", `hi${zwsp}there\n`);
+		const { actions } = await provide(document, first);
 
-  test("fix all rewrites every finding in one edit", async () => {
-    const doc = await open(`const a = 1 ${emDash} 2;\nconst b = "x${zwsp}y";\n`);
-    const actions = await actionsFor(doc);
+		const all = actions.filter((a) => a.title === fixAllTitle);
+		assert.equal(all.length, 1);
+		assert.notEqual(all[0]?.isPreferred, true);
+		assert.equal(actions.indexOf(all[0]!), actions.length - 1);
+	});
 
-    const all = actions.find((a) => a.title.startsWith("Fix all"));
-    assert.ok(all, `no fix-all action in: ${actions.map((a) => a.title).join(" | ")}`);
-    assert.equal(await applyTo(doc, all), 'const a = 1 - 2;\nconst b = "xy";\n');
-  });
+	test("names the substitution when the character is replaced rather than removed", async () => {
+		const document = await open("replace.txt", `foo${nbsp}bar\n`);
+		const { actions } = await provide(document, first);
 
-  test("a lookalike letter is offered no fix", async () => {
-    const doc = await open(`const site = "p${cyrillicA}ypal";\n`);
-    const actions = await actionsFor(doc);
+		const preferred = actions.find((a) => a.isPreferred);
+		assert.equal(preferred?.title, 'untrace: Replace the Non-Breaking Space with " "');
+	});
 
-    assert.ok(
-      vscode.languages.getDiagnostics(doc.uri).length > 0,
-      "expected the homoglyph to still be reported",
-    );
-    for (const a of actions) {
-      assert.ok(
-        !a.title.includes("U+0430"),
-        `offered a fix for a homoglyph: ${a.title}`,
-      );
-    }
-  });
+	test("offers one fix for a whole hidden payload, not one per character", async () => {
+		const document = await open("payload.txt", `x = 1 ${tagH}${tagI}\n`);
+		const { actions } = await provide(document, first);
 
-  // The editor asks at the cursor, not over the whole document, and it passes
-  // only the diagnostics overlapping that position.
-  test("a fix is offered at a cursor position, as the lightbulb asks", async () => {
-    const doc = await open(`const a = 1 ${emDash} 2;\n`);
+		const preferred = actions.filter((a) => a.isPreferred);
+		assert.equal(preferred.length, 1);
+		assert.equal(preferred[0]?.title, "untrace: Remove this hidden message");
+	});
 
-    const at = doc.getText().indexOf(emDash);
-    const cursor = new vscode.Range(0, at, 0, at);
-    const actions =
-      (await vscode.commands.executeCommand<vscode.CodeAction[]>(
-        "vscode.executeCodeActionProvider",
-        doc.uri,
-        cursor,
-      )) ?? [];
+	test("offers the fix from anywhere on the line, not only on the character", async () => {
+		const document = await open("caret.txt", `const key = "ab${zwsp}cd";\n`);
+		const end = document.lineAt(0).range.end;
+		const { actions } = await provide(document, () => new vscode.Range(end, end));
 
-    const one = actions.find((a) => a.title.startsWith("Replace U+2014"));
-    assert.ok(one, `no replace action at the cursor, only: ${actions.map((a) => a.title).join(" | ")}`);
-    assert.equal(await applyTo(doc, one), "const a = 1 - 2;\n");
-  });
+		const preferred = actions.filter((a) => a.isPreferred);
+		assert.equal(preferred.length, 1);
+		assert.equal(preferred[0]?.title, "untrace: Remove the Zero Width Space");
+	});
 
-  // A binary predating the replacement field reports actionable findings with
-  // no replacement. Treating that as "delete" silently removes characters that
-  // should have been normalised.
-  test("an older binary is not read as delete-everything", async () => {
-    const dir = mkdtempSync(join(tmpdir(), "untrace-old-"));
-    const stub = join(dir, "untrace");
-    writeFileSync(
-      stub,
-      `#!/bin/sh\ncat >/dev/null\ncat >&2 <<'JSON'\n${JSON.stringify({
-        version: "0.0.1",
-        files: [
-          {
-            path: "sample.ts",
-            format: "source",
-            encoding: "utf-8",
-            findings: [
-              {
-                line: 1,
-                column: 13,
-                codepoint: "U+2014",
-                name: "Em Dash",
-                kind: "typographic",
-                action: "detected",
-                applied: false,
-                actionable: true,
-              },
-            ],
-          },
-        ],
-      })}\nJSON\n`,
-      { mode: 0o755 },
-    );
+	test("offers only the whole-file fix from a line that has no finding on it", async () => {
+		const document = await open("otherline.txt", `clean line\nhi${zwsp}there\n`);
+		const { actions } = await provide(document, () => new vscode.Range(0, 0, 0, 10));
 
-    await vscode.workspace
-      .getConfiguration("untrace")
-      .update("path", stub, vscode.ConfigurationTarget.Global);
+		assert.deepEqual(
+			actions.map((a) => a.title),
+			[fixAllTitle],
+		);
+	});
 
-    try {
-      const doc = await open(`const a = 1 ${emDash} 2;\n`);
-      const actions = await actionsFor(doc);
+	test("offers nothing for a confusable letter", async () => {
+		const document = await open("confusable.ts", `let ${cyrillicEr}assword = 1;\n`);
+		const { actions } = await provide(document, whole);
 
-      const destructive = actions.find((a) => a.title === "Remove U+2014");
-      assert.ok(
-        !destructive,
-        "offered to delete a character that should have been replaced",
-      );
-    } finally {
-      await vscode.workspace
-        .getConfiguration("untrace")
-        .update("path", binary(), vscode.ConfigurationTarget.Global);
-    }
-  });
+		assert.deepEqual(actions, []);
+	});
 
-  test("ignore this line appends the directive in the file's comment syntax", async () => {
-    const doc = await open(`const a = 1 ${emDash} 2;\n`);
-    const actions = await actionsFor(doc);
+	test("offers nothing for a clean file", async () => {
+		const document = await open("clean.txt", "nothing to see here\n");
+		const { actions } = await provide(document, whole);
 
-    const ignore = actions.find((a) => a.title === "Ignore this line");
-    assert.ok(ignore, `no ignore action in: ${actions.map((a) => a.title).join(" | ")}`);
-    assert.match(await applyTo(doc, ignore), /\/\/ untrace:ignore$/m);
-  });
+		assert.deepEqual(actions, []);
+	});
+
+	test("offers only the whole-file action when source.fixAll is requested", async () => {
+		const document = await open("sourceaction.txt", `a${zwsp}b\n`);
+		const { actions } = await provide(document, whole, vscode.CodeActionKind.SourceFixAll);
+
+		assert.equal(actions.length, 1);
+		assert.equal(actions[0]?.title, fixAllTitle);
+		assert.equal(actions[0]?.kind?.value, fixAllKind.value);
+	});
+
+	test("offers nothing when neither the cache nor a fresh check has anything", async () => {
+		const document = await open("stale.txt", `a${zwsp}b\n`);
+		const empty = new Fixes(new Known(undefined));
+
+		assert.deepEqual(
+			await empty.provideCodeActions(document, whole(document), context([]), uncancelled),
+			[],
+		);
+	});
+
+	test("recomputes rather than giving up when the cache is behind the buffer", async () => {
+		const document = await open("behind.txt", `a${zwsp}b\n`);
+		const found = await analyse(document);
+		let refreshed = false;
+		const behind: Problems = {
+			current: () => undefined,
+			refresh: async () => {
+				refreshed = true;
+				return found;
+			},
+			withRewrites: async () => found,
+		};
+
+		const offered = await new Fixes(behind).provideCodeActions(
+			document,
+			whole(document),
+			context(found),
+			uncancelled,
+		);
+
+		assert.ok(refreshed, "a cache miss must trigger a fresh check");
+		assert.ok(offered.some((a) => a.isPreferred));
+	});
 });

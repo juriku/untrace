@@ -1,22 +1,22 @@
 {
   "compilerOptions": {
-    "module": "nodenext",
-    "moduleResolution": "nodenext",
-    "target": "es2022",
-    "lib": ["es2022"],
-    "types": ["node", "vscode", "mocha"],
+    "module": "Node16",
+    "moduleResolution": "Node16",
+    "target": "ES2022",
+    "lib": ["ES2022"],
+    // TypeScript 7 does not pull in @types/* automatically.
+    "types": ["node", "mocha", "vscode"],
     "outDir": "out",
     "rootDir": "src",
     "sourceMap": true,
     "strict": true,
+    "exactOptionalPropertyTypes": true,
     "noUncheckedIndexedAccess": true,
     "noImplicitOverride": true,
+    "noImplicitReturns": true,
     "noFallthroughCasesInSwitch": true,
-    "exactOptionalPropertyTypes": true,
-    "skipLibCheck": true
+    "noUnusedLocals": true,
+    "noUnusedParameters": true
   },
-  "include": ["src"],
-  // Non-recursive on purpose: src/test must be emitted, since vscode-test runs
-  // compiled JavaScript.
-  "exclude": ["src/*.test.ts"]
+  "include": ["src"]
 }

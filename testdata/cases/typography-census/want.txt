@@ -1,0 +1,10 @@
+
+source.py
+  1:21  detected  U+2014 Em Dash (typographic)
+  2:19  detected  U+2014 Em Dash (typographic)
+  3:18  detected  U+2014 Em Dash (typographic)
+
+stray.md
+  13:9  detected  U+201C Left Double Quotation Mark (typographic)
+
+found: 4 marker(s) in 2 of 3 file(s)

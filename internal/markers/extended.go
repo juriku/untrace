@@ -127,11 +127,7 @@ var DefaultIgnoredDirs = map[string]bool{
 	"venv":             true,
 }
 
-// Characters deliberately never reported, in any format. The ellipsis and the
-// bullet are ordinary punctuation in prose, lists and slides, so flagging them
-// produces noise in every document rather than signal in any. The middle dot
-// joins them: it is a letter in Catalan "l·l", a separator in breadcrumbs and
-// changelogs, and the multiplication sign in chemistry and maths.
+// Never reported, in any format. The middle dot is a letter in Catalan "l·l".
 var neverDetected = map[rune]bool{
 	0x2026: true, // horizontal ellipsis
 	0x2022: true, // bullet

@@ -219,3 +219,105 @@ func TestLargeDocxIsStillReadable(t *testing.T) {
 		t.Error("hidden character lost from a large document")
 	}
 }
+
+func epub(t *testing.T, entries map[string]string) []byte {
+	t.Helper()
+	all := map[string]string{
+		"mimetype":               "application/epub+zip",
+		"META-INF/container.xml": `<container><rootfiles><rootfile full-path="OEBPS/content.opf"/></rootfiles></container>`,
+	}
+	for k, v := range entries {
+		all[k] = v
+	}
+	return buildZip(t, all)
+}
+
+func TestDetectEPUB(t *testing.T) {
+	data := epub(t, map[string]string{"OEBPS/content.opf": `<package/>`})
+
+	if got := Detect(data); got != FormatEPUB {
+		t.Errorf("Detect = %q, want %q", got, FormatEPUB)
+	}
+}
+
+// The OPF sits wherever the container points, so the reader matches on
+// extension rather than on a fixed path.
+func TestReadEPUBFindsTheOPFAnywhere(t *testing.T) {
+	for _, path := range []string{"content.opf", "OEBPS/content.opf", "deep/nested/book.opf"} {
+		t.Run(path, func(t *testing.T) {
+			data := epub(t, map[string]string{
+				path: `<package><metadata><dc:creator>A Person</dc:creator></metadata></package>`,
+			})
+
+			d, err := Read(data)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if len(d.Metadata) != 1 || d.Metadata[0].Value != "A Person" {
+				t.Errorf("metadata = %+v", d.Metadata)
+			}
+		})
+	}
+}
+
+func TestReadEPUBExtractsChapterText(t *testing.T) {
+	data := epub(t, map[string]string{
+		"OEBPS/content.opf": `<package/>`,
+		"OEBPS/ch1.xhtml":   `<html><body><p>first` + string(rune(0x200B)) + `chapter</p></body></html>`,
+		"OEBPS/ch2.html":    `<html><body><p>second chapter</p></body></html>`,
+	})
+
+	d, err := Read(data)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{"first", "chapter", "second chapter", string(rune(0x200B))} {
+		if !strings.Contains(d.Text, want) {
+			t.Errorf("text is missing %q: %q", want, d.Text)
+		}
+	}
+}
+
+// EPUB 2 and HTML put the generator in an attribute, where element text never
+// appears, so reading only leaf text misses the most common declaration.
+func TestReadEPUBReadsAttributeMetadata(t *testing.T) {
+	data := epub(t, map[string]string{
+		"OEBPS/content.opf": `<package><metadata>` +
+			`<meta name="generator" content="Midjourney v6"/>` +
+			`<meta property="dcterms:modified">2026-08-17</meta>` +
+			`</metadata></package>`,
+	})
+
+	d, err := Read(data)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	var found bool
+	for _, m := range d.Metadata {
+		if m.Label == "generator" && m.Value == "Midjourney v6" {
+			found = true
+		}
+	}
+	if !found {
+		t.Errorf("attribute metadata not read: %+v", d.Metadata)
+	}
+}
+
+func TestMetaAttrPairIgnoresIncompleteTags(t *testing.T) {
+	data := epub(t, map[string]string{
+		"OEBPS/content.opf": `<package><metadata>` +
+			`<meta name="generator"/>` +
+			`<meta content="orphan"/>` +
+			`<notmeta name="x" content="y"/>` +
+			`</metadata></package>`,
+	})
+
+	d, err := Read(data)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(d.Metadata) != 0 {
+		t.Errorf("incomplete meta tags produced %+v", d.Metadata)
+	}
+}

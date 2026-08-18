@@ -23,11 +23,15 @@ Each occurrence produces a **Finding** carrying a verdict, not a boolean:
 
 | field | meaning |
 |---|---|
-| `Kind` | hidden, typographic, homoglyph, payload, metadata |
+| `Kind` | hidden, typographic, compatibility, homoglyph, payload, metadata |
 | `Severity` | high, medium, low |
 | `Confidence` | certain, likely, possible |
 | `Action` | remove, replace, report-only, ignore |
 | `Reasons` | which resolvers fired |
+
+`Severity`, `Confidence` and `Reasons` are designed but **not built**. A Finding
+carries `Kind`, `Action` and `Actionable` today. R7 and R11 both depend on
+severity varying, so neither can land until they exist.
 
 Resolvers run in layers. Later layers see the output of earlier ones.
 
@@ -126,8 +130,10 @@ Highest wins:
 3. R9 grapheme legitimacy. Correct Unicode usage suppresses.
 4. R10 region, then R1 format policy.
 5. R4/R5 script analysis.
-6. R3 provenance, R6 typography census, R7 density adjust *confidence* only. They
-   never decide alone.
+6. R6 typography census suppresses in prose, and defers to R12: a configured
+   typographic action switches it off entirely.
+7. R3 provenance and R7 density adjust *confidence* only. They never decide
+   alone.
 
 ## Worked verdicts
 
@@ -164,8 +170,10 @@ The same characters, resolved differently:
   rather than global switches.
 - `--strict` disables the suppressing resolvers for users who want the raw
   character census.
-- `--json` carries severity, confidence and reasons, which is what the VS Code
-  extension needs to choose squiggle colours.
+- `--json` would carry severity, confidence and reasons, which is what the VS
+  Code extension needs to choose squiggle colours. **Not built**: a Finding
+  carries `Kind`, `Action` and `Actionable`, and `--sarif` derives its level
+  from the last two rather than from a severity.
 
 ## What is built
 
@@ -173,10 +181,10 @@ The same characters, resolved differently:
 |---|---|
 | R1 format | built |
 | R2 encoding | built |
-| R3 provenance | built, raises confidence only when metadata names a generator |
+| R3 provenance | built. Confidence rises when a tool-naming field names a generator, and when a TC260 label declares generated origin whether or not its producer is recognised. A generator name in a free-text field such as `dc:description` raises nothing: running tool patterns over prose finds tools in it |
 | R4 script census | built for script-owned punctuation: letters are counted per script group once per document, and a group owning at least a tenth of them makes its punctuation native. Below that line R9 falls back to the nearest letter either side, so a quoted sentence too short to move the census still reads correctly. Homoglyphs are folded into R5 |
 | R5 mixed-script words | built |
-| R6 typography census | not built |
+| R6 typography census | built for prose. Curly quotes are counted against straight ones and dashes against hyphens, per document. A typeset form is the document's convention, and suppressed, when it holds more than a tenth of its pair over a sample of at least twenty **and appears on at least three distinct lines**. Share alone was not enough: a bulleted list contributes hyphens to the straight side, so nine bullets carried three em dashes pasted into one paragraph. Source is excluded, since a dash in an identifier is wrong however many the file contains, and a configured typographic action switches R6 off |
 | R7 density | not built |
 | R8 payload decode | built, all three schemes |
 | R9 grapheme legitimacy | built |
@@ -184,7 +192,7 @@ The same characters, resolved differently:
 | R11 code adjacency | not built |
 | R12 config | built, including glob-scoped overrides |
 | R13 inline suppression | built |
-| R14 baseline | not built |
+| R14 baseline | built. An entry names a file, a codepoint and which occurrence of it this is, never a line, so editing above a finding neither invalidates the entry nor raises a new alert. Two occurrences of one codepoint in a file are told apart by order, so inserting a second *above* the baselined one accepts the new occurrence and reports the old: the count stays right, the attribution does not. Entries nothing matched are reported as stale, since a baseline nobody prunes stops failing on findings that have come back |
 
 The rest of this document describes the intended design, not current state.
 

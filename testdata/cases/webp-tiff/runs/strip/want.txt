@@ -1,0 +1,13 @@
+
+art.webp [ai-generated: likely]
+  ai-declared  xmp CreatorTool names "midjourney"
+  metadata  xmp CreatorTool = "Midjourney v6" (71 bytes)
+
+camera.tiff
+  metadata  exif Software = "Canon EOS R5" (39 bytes) [kept: names no generator]
+
+scan.tiff [ai-generated: likely]
+  ai-declared  exif Software names "firefly"
+  metadata  exif Software = "Adobe Firefly 3" (42 bytes)
+
+found: 0 marker(s) in 3 of 3 file(s), 3 metadata record(s)

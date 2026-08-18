@@ -1,58 +1,95 @@
-import assert from "node:assert/strict";
-import { test } from "node:test";
+import * as assert from "node:assert/strict";
 
-import { runeSpanToUtf16, runeToUtf16 } from "./positions.ts";
+import { LineIndex } from "./positions";
 
-const tagT = String.fromCodePoint(0xe0074);
-const zwj = String.fromCodePoint(0x200d);
-const family = `\u{1F468}${zwj}\u{1F469}${zwj}\u{1F467}`;
+const tagH = "\u{E0068}";
+const tagI = "\u{E0069}";
+const zwj = "\u{200D}";
 
-test("ascii maps one to one", () => {
-  assert.equal(runeToUtf16("hello", 0), 0);
-  assert.equal(runeToUtf16("hello", 3), 3);
-});
+describe("LineIndex", () => {
+	it("maps the first column of the first line to the origin", () => {
+		const index = new LineIndex("hello\n");
+		assert.deepEqual(index.range(1, 1, 1), {
+			start: { line: 0, character: 0 },
+			end: { line: 0, character: 1 },
+		});
+	});
 
-test("an astral character occupies two utf-16 units", () => {
-  // "a" then U+1D400, so the rune at index 2 sits at UTF-16 index 3.
-  const line = "a\u{1D400}b";
-  assert.equal(runeToUtf16(line, 1), 1);
-  assert.equal(runeToUtf16(line, 2), 3);
-});
+	it("shifts every column after an astral character by one code unit", () => {
+		const index = new LineIndex(`x = 1 ${tagH}${tagI}`);
 
-test("tag characters shift every later column", () => {
-  const line = "x" + tagT + tagT + "y";
-  assert.equal(runeToUtf16(line, 1), 1);
-  assert.equal(runeToUtf16(line, 3), 5);
-});
+		assert.equal(index.character(1, 7), 6, "first tag character");
+		assert.equal(index.character(1, 8), 8, "second tag character, where column - 1 gives 7");
+		assert.deepEqual(index.range(1, 8, 1), {
+			start: { line: 0, character: 8 },
+			end: { line: 0, character: 10 },
+		});
+	});
 
-test("an emoji sequence counts joiners as runes", () => {
-  const line = family + "!";
-  // Three astral faces and two joiners, so the "!" is the sixth rune.
-  assert.equal(runeToUtf16(line, 5), 8);
-});
+	it("spans a run of astral characters", () => {
+		const index = new LineIndex(`x = 1 ${tagH}${tagI}`);
+		assert.deepEqual(index.range(1, 7, 2), {
+			start: { line: 0, character: 6 },
+			end: { line: 0, character: 10 },
+		});
+	});
 
-test("indices past the end clamp to the line length", () => {
-  assert.equal(runeToUtf16("ab", 99), 2);
-  assert.equal(runeToUtf16("", 3), 0);
-});
+	it("counts each line from its own start", () => {
+		const index = new LineIndex(`first${tagH}\nsecond\nthird`);
+		assert.deepEqual(index.range(3, 2, 1), {
+			start: { line: 2, character: 1 },
+			end: { line: 2, character: 2 },
+		});
+	});
 
-test("negative and zero indices clamp to zero", () => {
-  assert.equal(runeToUtf16("abc", -1), 0);
-  assert.equal(runeToUtf16("abc", 0), 0);
-});
+	it("is unaffected by a carriage return at the end of the line", () => {
+		const crlf = new LineIndex("alpha\r\nbeta\r\n");
+		const lf = new LineIndex("alpha\nbeta\n");
+		assert.deepEqual(crlf.range(2, 3, 1), lf.range(2, 3, 1));
+	});
 
-test("a span of astral runes measures in utf-16 units", () => {
-  const line = "go " + tagT + tagT + tagT + " end";
-  const start = runeToUtf16(line, 3);
-  assert.equal(start, 3);
-  assert.equal(runeSpanToUtf16(line, start, 3), 9);
-});
+	it("counts a tab as one code unit, not as its rendered width", () => {
+		const index = new LineIndex("a\tb");
+		assert.equal(index.character(1, 3), 2);
+	});
 
-test("a span stops at the end of the line", () => {
-  assert.equal(runeSpanToUtf16("ab", 0, 99), 2);
-});
+	it("handles the empty line left by a trailing newline", () => {
+		const index = new LineIndex("abc\n");
+		assert.deepEqual(index.range(2, 1, 1), {
+			start: { line: 1, character: 0 },
+			end: { line: 1, character: 0 },
+		});
+	});
 
-test("a lone surrogate does not loop forever", () => {
-  const line = "a\uD800b";
-  assert.equal(runeToUtf16(line, 2), 2);
+	it("clamps a column past the end of the line", () => {
+		const index = new LineIndex("ab\n");
+		assert.deepEqual(index.range(1, 99, 1), {
+			start: { line: 0, character: 2 },
+			end: { line: 0, character: 2 },
+		});
+	});
+
+	it("clamps a line past the end of the document", () => {
+		const index = new LineIndex("ab\n");
+		assert.deepEqual(index.range(50, 1, 1), {
+			start: { line: 49, character: 0 },
+			end: { line: 49, character: 0 },
+		});
+	});
+
+	it("treats a zero-width joiner inside an emoji sequence as one rune", () => {
+		const index = new LineIndex(`a\u{1F468}${zwj}\u{1F469}b`);
+		assert.equal(index.character(1, 2), 1, "first emoji");
+		assert.equal(index.character(1, 3), 3, "the joiner");
+		assert.equal(index.character(1, 4), 4, "second emoji");
+		assert.equal(index.character(1, 5), 6, "the letter after the sequence");
+	});
+
+	it("widens a zero-rune run to one character, so it stays visible", () => {
+		const index = new LineIndex("abc");
+		assert.deepEqual(index.range(1, 2, 0), {
+			start: { line: 0, character: 1 },
+			end: { line: 0, character: 2 },
+		});
+	});
 });

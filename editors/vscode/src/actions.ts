@@ -1,137 +1,123 @@
 import * as vscode from "vscode";
 
-import { commentFor } from "./comments";
-import { runeToUtf16 } from "./positions";
-import { Finding } from "./untrace";
+import { source, toRange, workspaceEdit } from "./adapt";
+import { edits, type Fix, type Problem } from "./problems";
 
-export const SOURCE = "untrace";
+export const fixAllKind = vscode.CodeActionKind.SourceFixAll.append(source);
 
-/** Marks a diagnostic as one this extension can act on, and carries the fix. */
-export interface Actionable extends vscode.Diagnostic {
-  finding?: Finding;
+export const fixAllTitle = label("Remove every hidden character in this file");
+
+export interface Problems {
+	current(document: vscode.TextDocument): Problem[] | undefined;
+	refresh(document: vscode.TextDocument): Promise<Problem[] | undefined>;
+	withRewrites(document: vscode.TextDocument): Promise<Problem[] | undefined>;
 }
 
-/**
- * A build predating the replacement field omits it entirely. Empty means delete,
- * so reading absent as empty would silently remove characters that should have
- * been normalised.
- */
-function fixable(f: Finding): f is Finding & { replacement: string } {
-  return f.actionable && f.replacement !== undefined;
+function label(title: string): string {
+	return `${source}: ${title}`;
 }
 
-function edit(doc: vscode.TextDocument, f: Finding & { replacement: string }): vscode.TextEdit {
-  const line = doc.lineAt(f.line - 1).text;
-  const start = runeToUtf16(line, f.column - 1);
-  const end = runeToUtf16(line, f.column);
-
-  return vscode.TextEdit.replace(
-    new vscode.Range(f.line - 1, start, f.line - 1, end),
-    f.replacement,
-  );
+interface Candidate {
+	problem: Problem;
+	fix: Fix;
+	preferred: boolean;
 }
 
-function describe(f: Finding & { replacement: string }): string {
-  return f.replacement === ""
-    ? `Remove ${f.codepoint}`
-    : `Replace ${f.codepoint} with ${JSON.stringify(f.replacement)}`;
+export class Fixes implements vscode.CodeActionProvider {
+	static readonly metadata: vscode.CodeActionProviderMetadata = {
+		providedCodeActionKinds: [vscode.CodeActionKind.QuickFix, fixAllKind],
+	};
+
+	constructor(private readonly problems: Problems) {}
+
+	async provideCodeActions(
+		document: vscode.TextDocument,
+		range: vscode.Range,
+		context: vscode.CodeActionContext,
+		token: vscode.CancellationToken,
+	): Promise<vscode.CodeAction[]> {
+		let found = this.problems.current(document) ?? (await this.problems.refresh(document)) ?? [];
+		if (token.isCancellationRequested) {
+			return [];
+		}
+		if (needsRewrites(found, range)) {
+			found = (await this.problems.withRewrites(document)) ?? found;
+			if (token.isCancellationRequested) {
+				return [];
+			}
+		}
+		const all = edits(found, "all");
+
+		if (context.only?.contains(fixAllKind)) {
+			return all.length === 0 ? [] : [every(document, all, context, fixAllKind)];
+		}
+		if (context.only !== undefined && !context.only.contains(vscode.CodeActionKind.QuickFix)) {
+			return [];
+		}
+
+		const actions = near(found, range).map((c) => one(document, c, context));
+		if (all.length > 0) {
+			actions.push(every(document, all, context, vscode.CodeActionKind.QuickFix));
+		}
+		return actions;
+	}
 }
 
-function fix(doc: vscode.TextDocument, f: Finding & { replacement: string }, d: vscode.Diagnostic): vscode.CodeAction {
-  const action = new vscode.CodeAction(describe(f), vscode.CodeActionKind.QuickFix);
-  action.edit = new vscode.WorkspaceEdit();
-  action.edit.set(doc.uri, [edit(doc, f)]);
-  action.diagnostics = [d];
-  action.isPreferred = true;
-  return action;
+// microsoft/vscode#254459
+function needsRewrites(found: readonly Problem[], range: vscode.Range): boolean {
+	return onLineOrTouching(found, range).some((p) => p.rewritable && p.rewrite === undefined);
 }
 
-function fixEveryOfKind(doc: vscode.TextDocument, same: (Finding & { replacement: string })[]): vscode.CodeAction {
-  const label = `Fix all ${same.length} ${same[0]!.name} in this file`;
-  const action = new vscode.CodeAction(label, vscode.CodeActionKind.QuickFix);
-  action.edit = new vscode.WorkspaceEdit();
-  action.edit.set(
-    doc.uri,
-    same.map((f) => edit(doc, f)),
-  );
-  return action;
+function onLineOrTouching(found: readonly Problem[], range: vscode.Range): Problem[] {
+	const touching = found.filter((p) => toRange(p.range).intersection(range) !== undefined);
+	if (touching.length > 0) {
+		return touching;
+	}
+	return found.filter(
+		(p) => p.range.start.line >= range.start.line && p.range.start.line <= range.end.line,
+	);
 }
 
-function suppress(doc: vscode.TextDocument, line: number): vscode.CodeAction | undefined {
-  const comment = commentFor(doc.languageId);
-  if (comment === undefined) {
-    return undefined;
-  }
-
-  const text = doc.lineAt(line).text;
-  const directive = `  ${comment.open} untrace:ignore${comment.close && ` ${comment.close}`}`;
-
-  const action = new vscode.CodeAction("Ignore this line", vscode.CodeActionKind.QuickFix);
-  action.edit = new vscode.WorkspaceEdit();
-  action.edit.set(doc.uri, [
-    vscode.TextEdit.insert(new vscode.Position(line, text.length), directive),
-  ]);
-  return action;
+function near(found: readonly Problem[], range: vscode.Range): Candidate[] {
+	const out: Candidate[] = [];
+	for (const problem of onLineOrTouching(found, range)) {
+		if (problem.fix !== undefined) {
+			out.push({ problem, fix: problem.fix, preferred: true });
+		}
+		if (problem.rewrite !== undefined) {
+			out.push({ problem, fix: problem.rewrite, preferred: false });
+		}
+	}
+	return out;
 }
 
-export class Actions implements vscode.CodeActionProvider {
-  static readonly kinds = [
-    vscode.CodeActionKind.QuickFix,
-    vscode.CodeActionKind.SourceFixAll.append(SOURCE),
-  ];
+function one(
+	document: vscode.TextDocument,
+	candidate: Candidate,
+	context: vscode.CodeActionContext,
+): vscode.CodeAction {
+	const action = new vscode.CodeAction(label(candidate.fix.title), vscode.CodeActionKind.QuickFix);
+	action.edit = workspaceEdit(document.uri, [candidate.fix]);
+	if (candidate.preferred) {
+		action.isPreferred = true;
+	}
 
-  constructor(private readonly findingsFor: (uri: vscode.Uri) => Finding[]) {}
+	const at = toRange(candidate.problem.range);
+	const diagnostic = context.diagnostics.find((d) => d.source === source && d.range.isEqual(at));
+	if (diagnostic !== undefined) {
+		action.diagnostics = [diagnostic];
+	}
+	return action;
+}
 
-  provideCodeActions(
-    doc: vscode.TextDocument,
-    range: vscode.Range | vscode.Selection,
-    context: vscode.CodeActionContext,
-  ): vscode.CodeAction[] {
-    const all = this.findingsFor(doc.uri).filter(fixable);
-    if (all.length === 0) {
-      return [];
-    }
-
-    const out: vscode.CodeAction[] = [];
-
-    const here = context.diagnostics.filter(
-      (d): d is Actionable => d.source === SOURCE && (d as Actionable).finding !== undefined,
-    );
-
-    for (const d of here) {
-      const f = d.finding!;
-      if (!fixable(f)) {
-        continue;
-      }
-      out.push(fix(doc, f, d));
-
-      const same = all.filter((o) => o.codepoint === f.codepoint);
-      if (same.length > 1) {
-        out.push(fixEveryOfKind(doc, same));
-      }
-    }
-
-    if (here.length > 0) {
-      const ignore = suppress(doc, range.start.line);
-      if (ignore !== undefined) {
-        out.push(ignore);
-      }
-    }
-
-    out.push(this.fixAll(doc, all));
-    return out;
-  }
-
-  private fixAll(doc: vscode.TextDocument, all: (Finding & { replacement: string })[]): vscode.CodeAction {
-    const action = new vscode.CodeAction(
-      `Fix all ${all.length} in this file`,
-      vscode.CodeActionKind.SourceFixAll.append(SOURCE),
-    );
-    action.edit = new vscode.WorkspaceEdit();
-    action.edit.set(
-      doc.uri,
-      all.map((f) => edit(doc, f)),
-    );
-    return action;
-  }
+function every(
+	document: vscode.TextDocument,
+	fixes: readonly Fix[],
+	context: vscode.CodeActionContext,
+	kind: vscode.CodeActionKind,
+): vscode.CodeAction {
+	const action = new vscode.CodeAction(fixAllTitle, kind);
+	action.edit = workspaceEdit(document.uri, fixes);
+	action.diagnostics = context.diagnostics.filter((d) => d.source === source);
+	return action;
 }

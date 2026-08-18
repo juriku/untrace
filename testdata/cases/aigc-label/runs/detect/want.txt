@@ -1,0 +1,6 @@
+
+labelled.png [ai-generated: likely]
+  ai-declared  png-text AIGC names "Doubao, declared under GB 45438-2025"
+  metadata  png-text AIGC = "Doubao" (191 bytes)
+
+found: 0 marker(s) in 1 of 1 file(s), 1 metadata record(s)

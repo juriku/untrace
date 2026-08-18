@@ -1,0 +1,135 @@
+name: untrace
+description: Find invisible characters, hidden payloads and AI provenance metadata, and report them to code scanning.
+author: juriku
+
+branding:
+  icon: eye-off
+  color: purple
+
+inputs:
+  paths:
+    description: Paths to scan, space separated.
+    required: false
+    default: "."
+  version:
+    description: Release to install, as a tag such as v0.1.0, or "latest".
+    required: false
+    default: latest
+  sarif-file:
+    description: Write SARIF here for github/codeql-action/upload-sarif. Empty writes none.
+    required: false
+    default: ""
+  fail:
+    description: Fail the step when something actionable is found. Set false when uploading SARIF, and gate on the exit-code output after the upload.
+    required: false
+    default: "true"
+  args:
+    description: Extra flags passed through to untrace, such as --strict.
+    required: false
+    default: ""
+  token:
+    description: Token used to resolve the release. Only needs public read access.
+    required: false
+    default: ${{ github.token }}
+
+outputs:
+  exit-code:
+    description: untrace's exit code. 0 clean, 1 something actionable, 2 a file could not be read.
+    value: ${{ steps.scan.outputs.exit-code }}
+
+runs:
+  using: composite
+  steps:
+    - name: Install untrace
+      shell: bash
+      env:
+        GH_TOKEN: ${{ inputs.token }}
+        VERSION: ${{ inputs.version }}
+      run: |
+        set -euo pipefail
+
+        if [ "$VERSION" = "latest" ]; then
+          VERSION=$(curl -sSfL \
+            -H "Authorization: Bearer $GH_TOKEN" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            https://api.github.com/repos/juriku/untrace/releases/latest \
+            | grep -m1 '"tag_name"' | cut -d'"' -f4)
+        fi
+        VERSION="${VERSION#v}"
+
+        case "$RUNNER_OS" in
+          Linux)   OS=linux;   EXT=tar.gz ;;
+          macOS)   OS=darwin;  EXT=tar.gz ;;
+          Windows) OS=windows; EXT=zip ;;
+          *) echo "unsupported runner OS: $RUNNER_OS" >&2; exit 1 ;;
+        esac
+        case "$RUNNER_ARCH" in
+          X64)   ARCH=amd64 ;;
+          ARM64) ARCH=arm64 ;;
+          *) echo "unsupported runner arch: $RUNNER_ARCH" >&2; exit 1 ;;
+        esac
+
+        ASSET="untrace_${VERSION}_${OS}_${ARCH}.${EXT}"
+        URL="https://github.com/juriku/untrace/releases/download/v${VERSION}/${ASSET}"
+
+        DEST="$RUNNER_TEMP/untrace-bin"
+        mkdir -p "$DEST"
+        echo "installing $ASSET"
+        curl -sSfL "$URL" -o "$DEST/$ASSET"
+
+        # The release publishes checksums.txt; a download nobody checks it
+        # against is a binary this action runs on trust alone.
+        curl -sSfL "https://github.com/juriku/untrace/releases/download/v${VERSION}/checksums.txt" \
+          -o "$DEST/checksums.txt"
+        ( cd "$DEST" && grep " ${ASSET}\$" checksums.txt | shasum -a 256 -c - ) || {
+          echo "::error::checksum mismatch for $ASSET"
+          exit 1
+        }
+
+        if [ "$EXT" = "zip" ]; then
+          unzip -q -o "$DEST/$ASSET" -d "$DEST"
+        else
+          tar -xzf "$DEST/$ASSET" -C "$DEST"
+        fi
+        chmod +x "$DEST/untrace" 2>/dev/null || true
+        echo "$DEST" >> "$GITHUB_PATH"
+
+    - name: Scan
+      id: scan
+      shell: bash
+      env:
+        PATHS: ${{ inputs.paths }}
+        SARIF_FILE: ${{ inputs.sarif-file }}
+        EXTRA_ARGS: ${{ inputs.args }}
+        SHOULD_FAIL: ${{ inputs.fail }}
+      run: |
+        set -uo pipefail
+
+        FLAGS=()
+        if [ -n "$EXTRA_ARGS" ]; then
+          read -r -a extra <<< "$EXTRA_ARGS"
+          FLAGS+=("${extra[@]}")
+        fi
+        FLAGS+=(--fail)
+
+        read -r -a targets <<< "$PATHS"
+
+        if [ -n "$SARIF_FILE" ]; then
+          mkdir -p "$(dirname "$SARIF_FILE")"
+          untrace --sarif "${FLAGS[@]}" "${targets[@]}" > "$SARIF_FILE"
+          CODE=$?
+        else
+          untrace "${FLAGS[@]}" "${targets[@]}"
+          CODE=$?
+        fi
+
+        echo "exit-code=$CODE" >> "$GITHUB_OUTPUT"
+
+        if [ "$CODE" = "2" ]; then
+          echo "::error::untrace could not read a file, or the config is invalid"
+          exit 2
+        fi
+        if [ "$CODE" != "0" ] && [ "$SHOULD_FAIL" = "true" ]; then
+          exit "$CODE"
+        fi
+        exit 0

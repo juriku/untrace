@@ -20,6 +20,7 @@ type Format string
 const (
 	FormatOOXML   Format = "ooxml"
 	FormatODF     Format = "odf"
+	FormatEPUB    Format = "epub"
 	FormatPDF     Format = "pdf"
 	FormatUnknown Format = ""
 )
@@ -54,6 +55,9 @@ func Detect(data []byte) Format {
 			return FormatOOXML
 		case f.Name == "meta.xml", f.Name == "content.xml":
 			return FormatODF
+		// Required by the OCF spec; the OPF it points at may sit anywhere.
+		case f.Name == "META-INF/container.xml":
+			return FormatEPUB
 		}
 	}
 	return FormatUnknown
@@ -73,6 +77,8 @@ func Read(data []byte) (Document, error) {
 		return readZipDoc(data, FormatOOXML)
 	case FormatODF:
 		return readZipDoc(data, FormatODF)
+	case FormatEPUB:
+		return readZipDoc(data, FormatEPUB)
 	case FormatPDF:
 		return readPDF(data), nil
 	}
@@ -88,7 +94,20 @@ var (
 	}
 	odfMeta = []string{"meta.xml"}
 	odfBody = []string{"content.xml"}
+	// Matched by extension: an EPUB fixes no path for either.
+	epubMeta = []string{".opf"}
+	epubBody = []string{".xhtml", ".html", ".htm"}
 )
+
+func archiveParts(format Format) (meta, body []string, match func(string, []string) bool) {
+	switch format {
+	case FormatODF:
+		return odfMeta, odfBody, matchesAny
+	case FormatEPUB:
+		return epubMeta, epubBody, matchesSuffix
+	}
+	return ooxmlMeta, ooxmlBody, matchesAny
+}
 
 func readZipDoc(data []byte, format Format) (Document, error) {
 	r, err := zip.NewReader(bytes.NewReader(data), int64(len(data)))
@@ -96,23 +115,20 @@ func readZipDoc(data []byte, format Format) (Document, error) {
 		return Document{}, err
 	}
 
-	metaParts, bodyParts := ooxmlMeta, ooxmlBody
-	if format == FormatODF {
-		metaParts, bodyParts = odfMeta, odfBody
-	}
+	metaParts, bodyParts, matches := archiveParts(format)
 
 	doc := Document{Format: format}
 	var body strings.Builder
 
 	for _, f := range r.File {
 		switch {
-		case matchesAny(f.Name, metaParts):
+		case matches(f.Name, metaParts):
 			content, err := readEntry(f)
 			if err != nil {
 				continue
 			}
 			doc.Metadata = append(doc.Metadata, xmlLeafValues(content)...)
-		case matchesAny(f.Name, bodyParts):
+		case matches(f.Name, bodyParts):
 			content, err := readEntry(f)
 			if err != nil {
 				continue
@@ -129,6 +145,15 @@ func readZipDoc(data []byte, format Format) (Document, error) {
 func matchesAny(name string, prefixes []string) bool {
 	for _, p := range prefixes {
 		if name == p || strings.HasPrefix(name, p) {
+			return true
+		}
+	}
+	return false
+}
+
+func matchesSuffix(name string, suffixes []string) bool {
+	for _, s := range suffixes {
+		if strings.HasSuffix(name, s) {
 			return true
 		}
 	}
@@ -173,6 +198,9 @@ func xmlLeafValues(content []byte) []Finding {
 		}
 		switch t := tok.(type) {
 		case xml.StartElement:
+			if label, value, ok := metaAttrPair(t); ok {
+				out = append(out, Finding{Label: label, Value: truncate(value)})
+			}
 			current = t.Name.Local
 			buf.Reset()
 		case xml.CharData:
@@ -188,6 +216,27 @@ func xmlLeafValues(content []byte) []Finding {
 		}
 	}
 	return out
+}
+
+// <meta name="generator" content="..."> puts the value in an attribute, where
+// element text never appears. Untruncated: the fixer matches it against raw bytes.
+func metaAttrPair(e xml.StartElement) (label, value string, ok bool) {
+	if e.Name.Local != "meta" {
+		return "", "", false
+	}
+
+	for _, a := range e.Attr {
+		switch a.Name.Local {
+		case "name", "property":
+			label = a.Value
+		case "content":
+			value = a.Value
+		}
+	}
+	if label == "" || value == "" {
+		return "", "", false
+	}
+	return label, value, true
 }
 
 func xmlText(content []byte) string {
@@ -207,8 +256,7 @@ func xmlText(content []byte) string {
 }
 
 // PDF metadata lives in the trailer's /Info dictionary. Locating it properly
-// means parsing the cross-reference table, and rewriting it means rebuilding
-// that table, so untrace reports these values without offering to remove them.
+// means parsing the cross-reference table, so it is matched by pattern instead.
 var pdfInfoKeys = regexp.MustCompile(`/(Producer|Creator|Author|Title|Subject)\s*\(([^)]{0,200})\)`)
 
 func readPDF(data []byte) Document {

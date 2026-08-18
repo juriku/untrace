@@ -33,14 +33,54 @@ func TestGeneratorMatches(t *testing.T) {
 		"Copilots Design Suite":  false,
 		"Firefly LED Signage":    false,
 
+		"Doubao 1.5":      true,
+		"Jimeng AI":       true,
+		"Kling 2.0":       true,
+		"Keling":          true,
+		"Tencent Yuanbao": true,
+		"ERNIE Bot":       true,
+		"Wenxin Yiyan":    true,
+		"LiblibAI":        true,
+		"Hailuo AI":       true,
+		"MiniMax abab":    true,
+		"Seedream 4.0":    true,
+		"Seedance 1.0":    true,
+		"Hunyuan-DiT":     true,
+		"Zhipu AI":        true,
+		"Tongyi Wanxiang": true,
+		"Nano Banana":     true,
+
+		// Ordinary words elsewhere, so these need a version beside them.
+		"Wan 2.5":               true,
+		"Vidu Q2":               true,
+		"de wan is leeg":        false,
+		"quod vidu in foro":     false,
+		"Klingon Language Inst": false,
+
 		// A PDF's Producer names the converter, not the author.
 		"Skia/PDF m140":                    false,
 		"jsPDF 2.5.1":                      false,
 		"Microsoft Word for Microsoft 365": false,
 
-		// A printable run lifted out of a real C2PA manifest.
-		"_generatorqClaude 3.5 Sonnet": true,
-		"Achraf Hakimi":                false,
+		"Achraf Hakimi": false,
+
+		// Ordinary words and names that a bare substring match reads as a tool.
+		"Ernie Ball":                false,
+		"Bernie Sanders":            false,
+		"Taiwan 2024 Report":        false,
+		"Rowan 3 Press":             false,
+		"Swan 1 Photography":        false,
+		"minimax alpha-beta search": false,
+		"Vidua paradisaea":          false,
+
+		// The vendors those words collide with are still matched.
+		"ERNIE Bot 4.0": true,
+
+		// A bare vendor name in a tool field is a real signal, so these stay
+		// matched here even though they are also surnames. Which fields reach
+		// Generator at all is the caller's decision; see TestFreeTextFieldsDo
+		// NotDeclareAI in cmd/untrace.
+		"Sora": true, "Kling": true,
 	}
 	for value, want := range cases {
 		t.Run(value, func(t *testing.T) {
@@ -88,5 +128,114 @@ func TestGeneratorIgnoresSpacingInMultiWordNames(t *testing.T) {
 		if _, ok := Generator(spelling); !ok {
 			t.Errorf("Generator(%q) did not match", spelling)
 		}
+	}
+}
+
+// A CBOR length byte sits flush against the name, so the manifest scan cannot
+// require the word boundary a metadata value can.
+func TestGeneratorInManifestMatchesAcrossACBORLengthByte(t *testing.T) {
+	const run = "_generatorqClaude 3.5 Sonnet"
+
+	if _, ok := GeneratorInManifest(run); !ok {
+		t.Errorf("GeneratorInManifest(%q) did not match", run)
+	}
+	if _, ok := Generator(run); ok {
+		t.Errorf("Generator(%q) matched, want the anchored form to decline", run)
+	}
+}
+
+func TestGeneratorInManifestStillNeedsTheName(t *testing.T) {
+	for _, run := range []string{"Achraf Hakimi", "Canon EOS R5", ""} {
+		if _, ok := GeneratorInManifest(run); ok {
+			t.Errorf("GeneratorInManifest(%q) matched", run)
+		}
+	}
+}
+
+const xmpAIGC = `<x:xmpmeta xmlns:x="adobe:ns:meta/">
+  <rdf:RDF xmlns:AIGC="http://www.tc260.org.cn/ns/AIGC/1.0/">
+    <rdf:Description>
+      <AIGC:Label>1</AIGC:Label>
+      <AIGC:ContentProducer>Doubao</AIGC:ContentProducer>
+      <AIGC:ProduceID>7f3a</AIGC:ProduceID>
+    </rdf:Description>
+  </rdf:RDF>
+</x:xmpmeta>`
+
+func TestAIGCLabelReadsTheXMPScheme(t *testing.T) {
+	producer, ok := AIGCLabel([]byte(xmpAIGC))
+
+	if !ok {
+		t.Fatal("a TC260 XMP packet was not recognised")
+	}
+	if producer != "Doubao" {
+		t.Errorf("producer = %q, want %q", producer, "Doubao")
+	}
+}
+
+func TestAIGCLabelReadsTheLegacyScheme(t *testing.T) {
+	raw := []byte(`AIGC: {"ServiceProvider": "Jimeng", "Time": "2026-08-17", "ContentID": "a1"}`)
+
+	producer, ok := AIGCLabel(raw)
+
+	if !ok {
+		t.Fatal("the legacy AIGC scheme was not recognised")
+	}
+	if producer != "Jimeng" {
+		t.Errorf("producer = %q, want %q", producer, "Jimeng")
+	}
+}
+
+// A comma-bounded read runs past the closing quote and swallows the rest of
+// the record.
+func TestAIGCProducerStopsAtTheClosingQuote(t *testing.T) {
+	raw := []byte(`AIGC: {"ServiceProvider": "doubao", "Time": "2026-08-18"} // notes on AIGC`)
+
+	producer, ok := AIGCLabel(raw)
+
+	if !ok {
+		t.Fatal("a real legacy label was not recognised")
+	}
+	if producer != "doubao" {
+		t.Errorf("producer = %q, want %q", producer, "doubao")
+	}
+}
+
+// The declaration is the evidence. A packet naming no producer is still a
+// statement that the file was generated.
+func TestAIGCLabelWithoutAProducerStillCounts(t *testing.T) {
+	raw := []byte(`<rdf:RDF xmlns:AIGC="http://www.tc260.org.cn/ns/AIGC/1.0/"><AIGC:Label>1</AIGC:Label></rdf:RDF>`)
+
+	producer, ok := AIGCLabel(raw)
+
+	if !ok {
+		t.Error("a label with no producer was ignored")
+	}
+	if producer != "" {
+		t.Errorf("producer = %q, want empty", producer)
+	}
+}
+
+func TestAIGCLabelIgnoresOrdinaryMetadata(t *testing.T) {
+	cases := map[string][]byte{
+		"adobe xmp":       []byte(`<x:xmpmeta><xmp:CreatorTool>Adobe Photoshop</xmp:CreatorTool></x:xmpmeta>`),
+		"empty":           nil,
+		"the word alone":  []byte("this document discusses AIGC labelling"),
+		"a provider only": []byte(`{"ServiceProvider": "Acme Hosting"}`),
+
+		// Both tokens present, but ServiceProvider is a sibling key rather than
+		// a member of an object the AIGC key introduces.
+		"both tokens, unrelated": []byte(
+			`{"pipeline":"diagram","ServiceProvider":"acme-cdn","topic":"AIGC compliance overview"}`),
+		"aigc key, no provider": []byte(`{"AIGC":{"Version":"1.0"}}`),
+		"aigc not a key":        []byte(`{"notes":"AIGC","ServiceProvider":"acme-cdn"}`),
+	}
+
+	for name, raw := range cases {
+		t.Run(name, func(t *testing.T) {
+			if _, ok := AIGCLabel(raw); ok {
+				t.Errorf("AIGCLabel(%q) matched", raw)
+			}
+		})
 	}
 }

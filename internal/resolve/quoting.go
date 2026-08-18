@@ -166,9 +166,6 @@ func tomlQuoting(text string) []quoting {
 	return out
 }
 
-// yamlQuoting classifies every rune position in a YAML document, refusing every
-// case whose enclosing style is not certain.
-//
 // A plain scalar is refused rather than written raw: a quote is legal inside
 // one, but at its start it turns the scalar into a quoted scalar and drops the
 // quotes from the value, which changes data rather than a character.

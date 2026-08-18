@@ -229,3 +229,166 @@ func TestFixLeavesBodyAloneWhenOnlyStripping(t *testing.T) {
 		t.Error("body changed while only stripping metadata")
 	}
 }
+
+func epubFixture(t *testing.T, opf, chapter string) []byte {
+	t.Helper()
+	return buildZip(t, map[string]string{
+		"mimetype":               "application/epub+zip",
+		"META-INF/container.xml": `<container><rootfiles><rootfile full-path="OEBPS/content.opf"/></rootfiles></container>`,
+		"OEBPS/content.opf":      opf,
+		"OEBPS/ch1.xhtml":        chapter,
+	})
+}
+
+func TestFixEPUBCleansChapterText(t *testing.T) {
+	data := epubFixture(t,
+		`<package><metadata><dc:creator>A Person</dc:creator></metadata></package>`,
+		`<html><body><p>hello`+string(rune(0x200B))+`world</p></body></html>`)
+
+	out, changed, err := Fix(data, FixOptions{Text: func(s string) string {
+		return strings.ReplaceAll(s, string(rune(0x200B)), "")
+	}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !changed {
+		t.Fatal("an epub with a hidden character was left unchanged")
+	}
+
+	d, err := Read(out)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(d.Text, string(rune(0x200B))) {
+		t.Error("the hidden character survived")
+	}
+	if !strings.Contains(d.Text, "helloworld") {
+		t.Errorf("surrounding text was damaged: %q", d.Text)
+	}
+}
+
+func TestFixEPUBBlanksOnlyWhatStripSelects(t *testing.T) {
+	data := epubFixture(t,
+		`<package><metadata>`+
+			`<dc:creator>Claude</dc:creator><dc:publisher>Acme</dc:publisher>`+
+			`<meta name="generator" content="Midjourney v6"/></metadata></package>`,
+		`<html><body><p>text</p></body></html>`)
+
+	out, changed, err := Fix(data, FixOptions{Strip: func(f Finding) bool {
+		return f.Value == "Claude" || f.Value == "Midjourney v6"
+	}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !changed {
+		t.Fatal("nothing was stripped")
+	}
+
+	d, err := Read(out)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, m := range d.Metadata {
+		switch m.Label {
+		case "creator", "generator":
+			if m.Value != "" {
+				t.Errorf("%s survived as %q", m.Label, m.Value)
+			}
+		case "publisher":
+			if m.Value != "Acme" {
+				t.Errorf("publisher = %q, want Acme", m.Value)
+			}
+		}
+	}
+}
+
+// A rewritten archive has to stay readable, or fixing a book destroys it.
+func TestFixEPUBKeepsEveryEntry(t *testing.T) {
+	data := epubFixture(t,
+		`<package><metadata><dc:creator>Claude</dc:creator></metadata></package>`,
+		`<html><body><p>hello`+string(rune(0x200B))+`world</p></body></html>`)
+
+	out, _, err := Fix(data, FixOptions{Text: func(s string) string {
+		return strings.ReplaceAll(s, string(rune(0x200B)), "")
+	}})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	r, err := zip.NewReader(bytes.NewReader(out), int64(len(out)))
+	if err != nil {
+		t.Fatalf("the fixed epub is not a readable archive: %v", err)
+	}
+	want := []string{"mimetype", "META-INF/container.xml", "OEBPS/content.opf", "OEBPS/ch1.xhtml"}
+	got := map[string]bool{}
+	for _, f := range r.File {
+		got[f.Name] = true
+	}
+	for _, name := range want {
+		if !got[name] {
+			t.Errorf("%s was dropped", name)
+		}
+	}
+}
+
+func TestBlankAttrValue(t *testing.T) {
+	cases := map[string]string{
+		`<meta name="generator" content="X"/>`:   `<meta name="generator" content=""/>`,
+		`<meta name='generator' content='X'/>`:   `<meta name='generator' content=''/>`,
+		`<meta content = "X" name="generator"/>`: `<meta content = "" name="generator"/>`,
+
+		// encoding/xml hands the caller "ChatGPT", which appears nowhere in
+		// these bytes. Locating the attribute by name is what survives that.
+		`<meta name="generator" content="Chat&#71;PT"/>`: `<meta name="generator" content=""/>`,
+		`<meta name="generator" content="A &amp; B"/>`:   `<meta name="generator" content=""/>`,
+
+		// A longer attribute name must not be mistaken for this one.
+		`<meta xcontent="keep" content="X"/>`: `<meta xcontent="keep" content=""/>`,
+	}
+
+	for in, want := range cases {
+		got, ok := blankAttrValue([]byte(in), "content")
+		if !ok {
+			t.Errorf("blankAttrValue(%q) did not match", in)
+			continue
+		}
+		if string(got) != want {
+			t.Errorf("got %q, want %q", got, want)
+		}
+	}
+}
+
+func TestBlankAttrValueLeavesAnAbsentAttributeAlone(t *testing.T) {
+	for _, in := range []string{
+		`<meta name="generator"/>`,
+		`<meta content/>`,
+		`<meta content=/>`,
+		`<meta content="unterminated />`,
+	} {
+		if _, ok := blankAttrValue([]byte(in), "content"); ok {
+			t.Errorf("blankAttrValue(%q) reported a blanking", in)
+		}
+	}
+}
+
+// One entity in the value used to defeat --strip-metadata while the report
+// still said the record was stripped.
+func TestFixEPUBStripsAGeneratorWrittenWithAnEntity(t *testing.T) {
+	data := epubFixture(t,
+		`<package><metadata><meta name="generator" content="Chat&#71;PT 4o"/></metadata></package>`,
+		`<html><body><p>text</p></body></html>`)
+
+	out, changed, err := Fix(data, FixOptions{Strip: func(f Finding) bool {
+		return f.Value == "ChatGPT 4o"
+	}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !changed {
+		t.Fatal("the entity-written generator was not stripped")
+	}
+
+	if got := entry(t, out, "OEBPS/content.opf"); bytes.Contains(got, []byte("PT 4o")) {
+		t.Errorf("the generator survived: %s", got)
+	}
+}

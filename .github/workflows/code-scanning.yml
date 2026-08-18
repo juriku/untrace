@@ -1,0 +1,48 @@
+name: Code scanning
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  schedule:
+    - cron: "27 6 * * 1"
+
+permissions:
+  contents: read
+
+jobs:
+  untrace:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
+
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
+        with:
+          go-version: stable
+
+      # Built from source rather than through action.yml: that installs a
+      # release, which by definition does not yet contain the commit under test.
+      - name: Build
+        run: go build -o untrace-bin ./cmd/untrace
+
+      - name: Scan
+        run: ./untrace-bin --sarif . > untrace.sarif
+
+      # GitHub rejects a SARIF file over 10 MB gzipped.
+      - name: Check the upload ceiling
+        run: |
+          size=$(gzip -c untrace.sarif | wc -c)
+          echo "gzipped SARIF: ${size} bytes"
+          if [ "$size" -gt 10485760 ]; then
+            echo "SARIF exceeds the 10 MB gzipped limit code scanning accepts"
+            exit 1
+          fi
+
+      - uses: github/codeql-action/upload-sarif@v4
+        with:
+          sarif_file: untrace.sarif
+          category: untrace

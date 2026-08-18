@@ -1,42 +1,49 @@
-/**
- * untrace reports 1-based line and column where a column counts runes, which is
- * Unicode code points. VS Code positions are 0-based and count UTF-16 code
- * units, so an astral character occupies two of them. Tag characters and emoji
- * are astral and are exactly what untrace reports, so converting is not
- * optional: without it every marker after one on the same line lands short.
- */
-
-/** Converts a 0-based rune index within `line` to a 0-based UTF-16 index. */
-export function runeToUtf16(line: string, runeIndex: number): number {
-  if (runeIndex <= 0) {
-    return 0;
-  }
-
-  let runes = 0;
-  let i = 0;
-  while (i < line.length) {
-    if (runes === runeIndex) {
-      return i;
-    }
-    const cp = line.codePointAt(i);
-    i += cp !== undefined && cp > 0xffff ? 2 : 1;
-    runes++;
-  }
-  return line.length;
+export interface Position {
+	line: number;
+	character: number;
 }
 
-/** Counts the UTF-16 code units spanned by `runeCount` runes from `from`. */
-export function runeSpanToUtf16(
-  line: string,
-  fromUtf16: number,
-  runeCount: number,
-): number {
-  let runes = 0;
-  let i = fromUtf16;
-  while (i < line.length && runes < runeCount) {
-    const cp = line.codePointAt(i);
-    i += cp !== undefined && cp > 0xffff ? 2 : 1;
-    runes++;
-  }
-  return i;
+export interface Range {
+	start: Position;
+	end: Position;
+}
+
+// untrace counts columns in runes and splits lines on \n alone; VS Code counts
+// UTF-16 code units and lines from zero. Astral characters shift the two apart.
+export class LineIndex {
+	private readonly lines: string[];
+	private readonly widths = new Map<number, number[]>();
+
+	constructor(text: string) {
+		this.lines = text.split("\n");
+	}
+
+	range(line: number, column: number, runes: number): Range {
+		const at = Math.max(line, 1);
+		return {
+			start: { line: at - 1, character: this.character(at, column) },
+			end: { line: at - 1, character: this.character(at, column + Math.max(runes, 1)) },
+		};
+	}
+
+	character(line: number, column: number): number {
+		const widths = this.widthsOf(line);
+		const i = Math.min(Math.max(column - 1, 0), widths.length - 1);
+		return widths[i]!;
+	}
+
+	private widthsOf(line: number): number[] {
+		const cached = this.widths.get(line);
+		if (cached) {
+			return cached;
+		}
+		const widths = [0];
+		let units = 0;
+		for (const rune of this.lines[line - 1] ?? "") {
+			units += rune.length;
+			widths.push(units);
+		}
+		this.widths.set(line, widths);
+		return widths;
+	}
 }

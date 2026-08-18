@@ -134,10 +134,17 @@ jobs:
           cache: npm
           cache-dependency-path: editors/vscode/package-lock.json
 
-      # The integration test builds the binary the extension shells out to.
       - uses: actions/setup-go@v7
         with:
           go-version: stable
+
+      # The tests shell out to untrace exactly as the extension does, so the
+      # binary has to be on PATH before any of them run.
+      - name: Install untrace
+        working-directory: .
+        run: |
+          go build -o "$RUNNER_TEMP/bin/untrace" ./cmd/untrace
+          echo "$RUNNER_TEMP/bin" >> "$GITHUB_PATH"
 
       - name: Install
         run: npm ci
@@ -149,8 +156,17 @@ jobs:
         run: npm test
 
       # Linux runners have no display server, and VS Code needs one.
+      # --fail-zero, so a glob that matches nothing fails instead of passing.
       - name: Integration test
         run: xvfb-run -a npm run test:integration
+
+      - name: Package
+        run: npm run package
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: untrace-vsix
+          path: editors/vscode/*.vsix
 
   self-scan:
     runs-on: ubuntu-latest

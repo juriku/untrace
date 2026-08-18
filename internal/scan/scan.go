@@ -143,7 +143,9 @@ func matchesPatterns(name string, patterns []string) bool {
 func IsScannable(path string) bool {
 	f, err := os.Open(path)
 	if err != nil {
-		return false
+		// Unreadable is not the same as not text. Dropping it here reports the
+		// tree clean; keeping it lets the caller open it and fail properly.
+		return !errors.Is(err, fs.ErrNotExist)
 	}
 	defer f.Close()
 

@@ -127,6 +127,9 @@ func printReport(w io.Writer, reports []fileReport, sum summary, opt options, co
 		if sum.Suppressed > 0 {
 			fmt.Fprintf(w, ", %d suppressed", sum.Suppressed)
 		}
+		if sum.Baselined > 0 {
+			fmt.Fprintf(w, ", %d baselined", sum.Baselined)
+		}
 		fmt.Fprintln(w)
 		return
 	}
@@ -147,6 +150,9 @@ func printReport(w io.Writer, reports []fileReport, sum summary, opt options, co
 	}
 	if sum.Suppressed > 0 {
 		fmt.Fprintf(w, ", %d suppressed", sum.Suppressed)
+	}
+	if sum.Baselined > 0 {
+		fmt.Fprintf(w, ", %d baselined", sum.Baselined)
 	}
 	fmt.Fprintln(w)
 }

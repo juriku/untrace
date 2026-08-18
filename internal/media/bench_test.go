@@ -3,10 +3,12 @@ package media
 import (
 	"bytes"
 	"encoding/binary"
+	"fmt"
 	"hash/crc32"
 	"image"
 	"image/jpeg"
 	"image/png"
+	"strings"
 	"testing"
 )
 
@@ -122,5 +124,50 @@ func BenchmarkDetectFormat(b *testing.B) {
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		Detect(data)
+	}
+}
+
+// A falling MB/s as the count doubles is the quadratic signal performance.md
+// teaches readers to look for. The SVG span walk had no benchmark at all, which
+// is how an O(spans squared) nesting check reached a release path.
+func BenchmarkSVGBySpanCount(b *testing.B) {
+	for _, n := range []int{500, 1000, 2000, 4000} {
+		text := `<svg xmlns="http://www.w3.org/2000/svg">` +
+			strings.Repeat("<metadata>x</metadata>", n) + "</svg>"
+
+		b.Run(fmt.Sprint(n), func(b *testing.B) {
+			b.SetBytes(int64(len(text)))
+			b.ReportAllocs()
+			b.ResetTimer()
+			for i := 0; i < b.N; i++ {
+				InspectSVG(text)
+			}
+		})
+	}
+}
+
+func BenchmarkWebPByChunkCount(b *testing.B) {
+	for _, n := range []int{500, 1000, 2000, 4000} {
+		var body bytes.Buffer
+		for i := 0; i < n; i++ {
+			body.WriteString("JUNK")
+			binary.Write(&body, binary.LittleEndian, uint32(4))
+			body.WriteString("data")
+		}
+		var buf bytes.Buffer
+		buf.WriteString("RIFF")
+		binary.Write(&buf, binary.LittleEndian, uint32(body.Len()+4))
+		buf.WriteString("WEBP")
+		buf.Write(body.Bytes())
+		data := buf.Bytes()
+
+		b.Run(fmt.Sprint(n), func(b *testing.B) {
+			b.SetBytes(int64(len(data)))
+			b.ReportAllocs()
+			b.ResetTimer()
+			for i := 0; i < b.N; i++ {
+				Inspect(data)
+			}
+		})
 	}
 }

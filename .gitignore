@@ -1,9 +1,13 @@
 # Session scratch: plans, reviews, handoffs
 .cache/
 
-# Build output
+# Build output. untrace-bin is what code-scanning.yml builds.
 /untrace
+/untrace-bin
 /dist/
+
+# Written into the workspace by code-scanning.yml before it uploads.
+*.sarif
 
 # Go
 *.test
@@ -19,7 +23,12 @@ covdata/
 # dependency directories.
 editors/vscode/node_modules/
 editors/vscode/out/
+editors/vscode/dist/
 editors/vscode/*.vsix
+
+# vsce requires a licence inside the package, so the root one is copied in at
+# package time rather than committed twice.
+editors/vscode/LICENSE
 
 # Downloaded by @vscode/test-cli when running extension tests
 .vscode-test/

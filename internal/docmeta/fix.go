@@ -23,7 +23,7 @@ func Fix(data []byte, opt FixOptions) ([]byte, bool, error) {
 	case FormatPDF:
 		out, changed := FixPDF(data, opt.Strip)
 		return out, changed, nil
-	case FormatOOXML, FormatODF:
+	case FormatOOXML, FormatODF, FormatEPUB:
 		return fixArchive(data, format, opt)
 	default:
 		return data, false, nil
@@ -36,17 +36,14 @@ func fixArchive(data []byte, format Format, opt FixOptions) ([]byte, bool, error
 		return data, false, err
 	}
 
-	metaParts, bodyParts := ooxmlMeta, ooxmlBody
-	if format == FormatODF {
-		metaParts, bodyParts = odfMeta, odfBody
-	}
+	metaParts, bodyParts, matches := archiveParts(format)
 
 	var buf bytes.Buffer
 	w := zip.NewWriter(&buf)
 	changed := false
 
 	for _, f := range r.File {
-		rewrite := rewriterFor(f.Name, metaParts, bodyParts, opt)
+		rewrite := rewriterFor(f.Name, metaParts, bodyParts, matches, opt)
 		if rewrite == nil {
 			if err := copyRaw(w, f); err != nil {
 				return data, false, err
@@ -87,13 +84,15 @@ func fixArchive(data []byte, format Format, opt FixOptions) ([]byte, bool, error
 	return buf.Bytes(), true, nil
 }
 
-func rewriterFor(name string, metaParts, bodyParts []string, opt FixOptions) func([]byte) ([]byte, bool) {
-	if opt.Text != nil && matchesAny(name, bodyParts) {
+func rewriterFor(name string, metaParts, bodyParts []string, matches func(string, []string) bool,
+	opt FixOptions) func([]byte) ([]byte, bool) {
+
+	if opt.Text != nil && matches(name, bodyParts) {
 		return func(content []byte) ([]byte, bool) {
 			return fixCharData(content, opt.Text)
 		}
 	}
-	if opt.Strip != nil && matchesAny(name, metaParts) {
+	if opt.Strip != nil && matches(name, metaParts) {
 		return func(content []byte) ([]byte, bool) {
 			return blankProperties(content, opt.Strip)
 		}
@@ -101,7 +100,62 @@ func rewriterFor(name string, metaParts, bodyParts []string, opt FixOptions) fun
 	return nil
 }
 
-// Strip sees the same Label and Value the report showed.
+// Edits the tag's bytes so its namespaces, quoting and spacing survive.
+//
+// The attribute is located by name rather than by its value: encoding/xml
+// expands entities, so `content="Chat&#71;PT"` reaches here as "ChatGPT" and
+// searching the raw bytes for that never matches.
+func blankAttrValue(tag []byte, attr string) ([]byte, bool) {
+	open, closing, ok := attrValueSpan(tag, attr)
+	if !ok {
+		return nil, false
+	}
+
+	out := make([]byte, 0, len(tag)-(closing-open))
+	out = append(out, tag[:open]...)
+	return append(out, tag[closing:]...), true
+}
+
+func attrValueSpan(tag []byte, attr string) (open, closing int, ok bool) {
+	for i := 0; ; {
+		j := bytes.Index(tag[i:], []byte(attr))
+		if j < 0 {
+			return 0, 0, false
+		}
+		i += j + len(attr)
+
+		if j > 0 && isNameByte(tag[i-len(attr)-1]) {
+			continue
+		}
+		rest := i
+		for rest < len(tag) && (tag[rest] == ' ' || tag[rest] == '\t') {
+			rest++
+		}
+		if rest >= len(tag) || tag[rest] != '=' {
+			continue
+		}
+		rest++
+		for rest < len(tag) && (tag[rest] == ' ' || tag[rest] == '\t') {
+			rest++
+		}
+		if rest >= len(tag) || (tag[rest] != '"' && tag[rest] != '\'') {
+			continue
+		}
+
+		quote := tag[rest]
+		end := bytes.IndexByte(tag[rest+1:], quote)
+		if end < 0 {
+			return 0, 0, false
+		}
+		return rest + 1, rest + 1 + end, true
+	}
+}
+
+func isNameByte(c byte) bool {
+	return c == '-' || c == '_' || c == ':' || c == '.' ||
+		(c >= '0' && c <= '9') || (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z')
+}
+
 func blankProperties(content []byte, strip func(Finding) bool) ([]byte, bool) {
 	dec := xml.NewDecoder(bytes.NewReader(content))
 
@@ -121,6 +175,22 @@ func blankProperties(content []byte, strip func(Finding) bool) ([]byte, bool) {
 		switch t := tok.(type) {
 		case xml.StartElement:
 			element = t.Name.Local
+
+			label, value, ok := metaAttrPair(t)
+			if !ok || !strip(Finding{Label: label, Value: value}) {
+				continue
+			}
+			if start >= end || end > int64(len(content)) {
+				continue
+			}
+			blanked, ok := blankAttrValue(content[start:end], "content")
+			if !ok {
+				continue
+			}
+			out.Write(content[copied:start])
+			out.Write(blanked)
+			copied = end
+			changed = true
 		case xml.EndElement:
 			element = ""
 		case xml.CharData:

@@ -120,9 +120,7 @@ func Legitimate(runes []rune, i int, census Census) (bool, string) {
 }
 
 // UAX #9 X8 terminates an isolate at the paragraph separator, so a partner on
-// another line is no partner: the reordering escapes the line either way, which
-// is the whole mechanism of the attack. Stopping at the newline also bounds the
-// scan, which is what keeps a file full of isolates linear.
+// another line is no partner.
 func isolateWrapsRTL(runes []rune, i int) bool {
 	step := 1
 	if runes[i] == 0x2069 {

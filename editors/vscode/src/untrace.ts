@@ -1,122 +1,167 @@
 import { execFile } from "node:child_process";
 
-export interface Finding {
-  line: number;
-  column: number;
-  codepoint: string;
-  name: string;
-  kind: string;
-  action: string;
-  applied: boolean;
-  actionable: boolean;
-  // Absent on an actionable finding means delete the character, which is the
-  // normal case for an invisible one.
-  replacement?: string;
-  in_payload?: boolean;
+import type { FileReport, Report } from "./report";
+
+export interface RunOptions {
+	timeoutMs?: number;
+	// untrace discovers .untrace.json by walking up from its own working
+	// directory, not from --stdin-name, so this decides which config applies.
+	cwd?: string;
+	signal?: AbortSignal;
 }
 
-export interface MixedWord {
-  line: number;
-  column: number;
-  word: string;
-  scripts: string[];
+export type FailureKind = "missing" | "timeout" | "superseded" | "failed";
+
+export class UntraceFailed extends Error {
+	constructor(
+		readonly kind: FailureKind,
+		message: string,
+	) {
+		super(message);
+	}
 }
 
-export interface Payload {
-  line: number;
-  column: number;
-  scheme: string;
-  runes: number;
-  text?: string;
-  printable: boolean;
+export interface Fixed {
+	text: string;
+	report: FileReport;
 }
 
-export interface FileReport {
-  path: string;
-  format: string;
-  encoding: string;
-  findings: Finding[] | null;
-  payloads?: Payload[];
-  mixed_script?: MixedWord[];
-  error?: string;
+const defaultTimeoutMs = 5000;
+const maxOutputBytes = 64 * 1024 * 1024;
+
+export async function check(
+	exe: string,
+	name: string,
+	text: string,
+	opt: RunOptions = {},
+	extra: readonly string[] = [],
+): Promise<FileReport> {
+	const { stderr } = await run(exe, [...args(name), ...extra], text, opt);
+	return single(exe, stderr);
 }
 
-export interface Report {
-  version: string;
-  files: FileReport[];
+export async function fix(
+	exe: string,
+	name: string,
+	text: string,
+	extra: readonly string[] = [],
+	opt: RunOptions = {},
+): Promise<Fixed> {
+	const { stdout, stderr } = await run(exe, [...args(name), "--fix", ...extra], text, opt);
+	return { text: stdout, report: single(exe, stderr) };
 }
 
-export class UntraceError extends Error {
-  constructor(
-    message: string,
-    readonly missingBinary: boolean = false,
-  ) {
-    super(message);
-  }
+export interface Triage {
+	publish: FileReport[];
+	skipped: number;
+	alreadyOpen: number;
 }
 
-export interface CheckOptions {
-  binary: string;
-  /** Path the content should be resolved as, deciding format and config. */
-  name: string;
-  strict: boolean;
+export function triage(
+	reports: readonly FileReport[],
+	open: ReadonlySet<string>,
+): Triage {
+	const out: Triage = { publish: [], skipped: 0, alreadyOpen: 0 };
+	for (const report of reports) {
+		if (!interesting(report)) {
+			continue;
+		}
+		if (open.has(report.path)) {
+			out.alreadyOpen++;
+		} else if (report.encoding !== "utf-8") {
+			out.skipped++;
+		} else {
+			out.publish.push(report);
+		}
+	}
+	return out;
 }
 
-/**
- * Exit 2 means untrace could not read the input or the config. Exit 1 only
- * happens under --fail, which is never passed here, so it is not an error.
- */
-export function check(text: string, opt: CheckOptions): Promise<FileReport> {
-  const args = ["--stdin", "--json", "--stdin-name", opt.name];
-  if (opt.strict) {
-    args.push("--strict");
-  }
+function interesting(report: FileReport): boolean {
+	return (
+		(report.findings ?? []).length > 0 ||
+		(report.payloads ?? []).length > 0 ||
+		(report.mixed_script ?? []).length > 0
+	);
+}
 
-  return new Promise((resolve, reject) => {
-    const child = execFile(
-      opt.binary,
-      args,
-      { maxBuffer: 32 * 1024 * 1024 },
-      (err, _stdout, stderr) => {
-        if (err && (err as NodeJS.ErrnoException).code === "ENOENT") {
-          reject(
-            new UntraceError(
-              `untrace not found at ${opt.binary}. Install it, or set untrace.path.`,
-              true,
-            ),
-          );
-          return;
-        }
-        if (err && typeof err.code === "number" && err.code >= 2) {
-          reject(new UntraceError(stderr.trim() || `untrace exited ${err.code}`));
-          return;
-        }
+export async function scan(
+	exe: string,
+	dir: string,
+	opt: RunOptions = {},
+	extra: readonly string[] = [],
+): Promise<FileReport[]> {
+	// Go's flag package stops parsing at the first non-flag argument.
+	const { stdout } = await run(exe, ["--json", ...extra, dir], "", { cwd: dir, ...opt });
+	return parse(exe, stdout).files ?? [];
+}
 
-        let report: Report;
-        try {
-          report = JSON.parse(stderr) as Report;
-        } catch {
-          reject(new UntraceError(`could not parse untrace output: ${stderr.slice(0, 200)}`));
-          return;
-        }
+function args(name: string): string[] {
+	return ["--stdin", "--stdin-name", name, "--json"];
+}
 
-        const file = report.files[0];
-        if (!file) {
-          reject(new UntraceError("untrace reported no files"));
-          return;
-        }
-        if (file.error) {
-          reject(new UntraceError(file.error));
-          return;
-        }
-        resolve(file);
-      },
-    );
+function run(
+	exe: string,
+	argv: string[],
+	input: string,
+	opt: RunOptions,
+): Promise<{ stdout: string; stderr: string }> {
+	return new Promise((resolve, reject) => {
+		const child = execFile(
+			exe,
+			argv,
+			{
+				timeout: opt.timeoutMs ?? defaultTimeoutMs,
+				maxBuffer: maxOutputBytes,
+				encoding: "utf8",
+				...(opt.cwd === undefined ? {} : { cwd: opt.cwd }),
+				...(opt.signal === undefined ? {} : { signal: opt.signal }),
+			},
+			(err, stdout, stderr) => {
+				if (err) {
+					reject(explain(exe, err, stderr));
+					return;
+				}
+				resolve({ stdout, stderr });
+			},
+		);
+		child.stdin?.on("error", () => {});
+		child.stdin?.end(input);
+	});
+}
 
-    child.stdin?.on("error", () => {
-      // The child can exit before the document is written, which surfaces as
-      // the callback error rather than here.
-    });
-    child.stdin?.end(text);
-  });
+function explain(exe: string, err: Error, stderr: string): UntraceFailed {
+	const detail = err as NodeJS.ErrnoException & { killed?: boolean };
+	const first = stderr.trim().split("\n", 1)[0] ?? "";
+	const message = `${exe}: ${first || err.message}`;
+
+	if (detail.code === "ENOENT") {
+		return new UntraceFailed("missing", `${exe}: not found`);
+	}
+	if (err.name === "AbortError" || detail.code === "ABORT_ERR") {
+		return new UntraceFailed("superseded", message);
+	}
+	if (detail.killed === true) {
+		return new UntraceFailed("timeout", `${exe}: took too long and was stopped`);
+	}
+	return new UntraceFailed("failed", message);
+}
+
+function parse(exe: string, text: string): Report {
+	try {
+		return JSON.parse(text) as Report;
+	} catch {
+		throw new UntraceFailed("failed", `${exe}: the report was not JSON`);
+	}
+}
+
+function single(exe: string, stderr: string): FileReport {
+	const file = parse(exe, stderr).files?.[0];
+	if (!file) {
+		throw new UntraceFailed("failed", `${exe}: the report named no file`);
+	}
+	if (file.error) {
+		throw new UntraceFailed("failed", `${exe}: ${file.error}`);
+	}
+	return file;
 }

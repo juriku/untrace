@@ -24,8 +24,7 @@ paper.pdf [ai-generated: likely]
   metadata  pdf-property Producer = "Claude"
   metadata  pdf-property Creator = "Some AI Tool" [kept: names no generator]
 
-report.docx [ai-generated: likely]
-  ai-declared  ooxml-property lastModifiedBy names "claude"
+report.docx
   metadata  ooxml-property creator = "Jane Doe" [kept: names no generator]
   metadata  ooxml-property lastModifiedBy = "Claude"
   metadata  ooxml-property Application = "Microsoft Word" [kept: names no generator]

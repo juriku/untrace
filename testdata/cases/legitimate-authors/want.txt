@@ -1,0 +1,10 @@
+
+drawing.svg
+  metadata  xmp creator = "Ernie Ball" (118 bytes)
+
+human.epub
+  metadata  epub-property creator = "Ernie Ball"
+  metadata  epub-property publisher = "Rowan 3 Press"
+  metadata  epub-property description = "a study of minimax search, Taiwan 2024, and Sora Kim"
+
+found: 0 marker(s) in 2 of 2 file(s), 4 metadata record(s)

@@ -137,8 +137,8 @@ func TestSingleIVSOnAnIdeographIsKept(t *testing.T) {
 	}
 }
 
-// R8 outranks R9, so a run of selectors is a payload even where a single one
-// would be a legitimate variation sequence.
+// A run of selectors is a payload even where a single one would be a legitimate
+// variation sequence.
 func TestIVSPayloadAfterAnIdeographIsStillDecoded(t *testing.T) {
 	res := newDetector(resolve.FormatProse, false).Run("辻" + decode.EncodeVariation([]byte("leak")))
 
@@ -429,5 +429,76 @@ func TestDirectiveOnlyAffectsItsLine(t *testing.T) {
 		if f.Line == 2 {
 			t.Errorf("finding on the suppressed line: %+v", f)
 		}
+	}
+}
+
+// A subdivision flag is U+1F3F4, tag letters spelling the region, then a cancel
+// tag, so its tag characters are the same carrier a payload uses (R8 against R9).
+func TestPayloadBesideASubdivisionFlagIsDecodedAlone(t *testing.T) {
+	flag := string(rune(0x1F3F4)) + decode.EncodeTag("gbsct") + string(rune(0xE007F))
+	text := flag + " leak: " + decode.EncodeTag("hi")
+
+	res := newDetector(resolve.FormatSource, false).Run(text)
+
+	if len(res.Payloads) != 1 {
+		t.Fatalf("got %d payloads, want 1: %+v", len(res.Payloads), res.Payloads)
+	}
+	if got := res.Payloads[0].Text; got != "hi" {
+		t.Errorf("Text = %q, want %q", got, "hi")
+	}
+}
+
+// Icon fonts assign their glyphs from the Private Use Area: Nerd Fonts, Font
+// Awesome and the Apple logo all live there, as does any private encoding.
+var privateUse = []struct {
+	name string
+	rune rune
+}{
+	{"private use area start", 0xE000},
+	{"font awesome", 0xF000},
+	{"font awesome glyph", 0xF0A0},
+	{"nerd font", 0xF489},
+	{"apple logo", 0xF8FF},
+	{"supplementary plane 15", 0xF0000},
+	{"supplementary plane 16", 0x100000},
+}
+
+func TestPrivateUseIsNeverDetected(t *testing.T) {
+	formats := []resolve.Format{resolve.FormatSource, resolve.FormatProse, resolve.FormatMarkup}
+
+	for _, pu := range privateUse {
+		for _, f := range formats {
+			t.Run(pu.name+"/"+f.String(), func(t *testing.T) {
+				in := "icon " + string(pu.rune) + " here"
+				res := newDetector(f, true).Run(in)
+
+				if len(res.Findings) != 0 {
+					t.Errorf("reported %d findings on U+%04X: %+v", len(res.Findings), pu.rune, res.Findings)
+				}
+				if res.Text != in {
+					t.Errorf("rewrote U+%04X: got %q, want %q", pu.rune, res.Text, in)
+				}
+			})
+		}
+	}
+}
+
+// Private use is clean because it is absent from the marker tables, not because
+// a resolver suppresses it, so strict must not surface it either.
+func TestPrivateUseStaysCleanUnderStrict(t *testing.T) {
+	for _, pu := range privateUse {
+		t.Run(pu.name, func(t *testing.T) {
+			in := "icon " + string(pu.rune) + " here"
+			d := newDetector(resolve.FormatSource, true)
+			d.Strict = true
+			res := d.Run(in)
+
+			if len(res.Findings) != 0 {
+				t.Errorf("strict reported U+%04X: %+v", pu.rune, res.Findings)
+			}
+			if res.Text != in {
+				t.Errorf("strict rewrote U+%04X: got %q", pu.rune, res.Text)
+			}
+		})
 	}
 }

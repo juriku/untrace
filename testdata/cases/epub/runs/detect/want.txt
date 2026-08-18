@@ -1,0 +1,9 @@
+
+book.epub [ai-generated: likely]
+  ai-declared  epub-property generator names "midjourney"
+  metadata  epub-property creator = "Claude 4.5"
+  metadata  epub-property publisher = "Acme Press"
+  metadata  epub-property generator = "Midjourney v6"
+  1:6  detected  U+200B Zero Width Space (hidden)
+
+found: 1 marker(s) in 1 of 1 file(s), 3 metadata record(s)
